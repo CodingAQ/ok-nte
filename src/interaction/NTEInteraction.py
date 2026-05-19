@@ -101,8 +101,7 @@ class NTEInteraction(PostMessageInteraction):
             time.sleep(down_time)
             self.post(btn_up, 0, click_pos)
             if should_restore:
-                time.sleep(0.025)
-                SetCursorPos(self.cursor_position)
+                self._restore_cursor()
 
     def operate(self, fun, block=False, restore_cursor=True):
         with self._input_lock:
@@ -124,11 +123,17 @@ class NTEInteraction(PostMessageInteraction):
                 if is_outer_operate:
                     self._operating = False
                     if restore_cursor:
-                        time.sleep(0.025)
-                        SetCursorPos(self.cursor_position)
+                        self._restore_cursor()
                 if block:
                     self.unblock_input()
             return result
+
+    def _restore_cursor(self):
+        time.sleep(0.025)
+        try:
+            SetCursorPos(self.cursor_position)
+        except Exception as e:
+            logger.error("restore cursor exception", e)
 
     def block_input(self):
         self.user32.BlockInput(True)
