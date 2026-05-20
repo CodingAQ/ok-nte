@@ -333,6 +333,8 @@ class CombatCheck(BaseNTETask):
         if self.in_animation:
             return True
         if self._in_combat:
+            if self.get_current_char() is None:
+                return self.reset_to_false(reason="current_char is None")
             if self.scene.in_combat() is not None:
                 return self.scene.in_combat()
             if current_char := self.get_current_char():

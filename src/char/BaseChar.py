@@ -338,9 +338,16 @@ class BaseChar:
         """
         if not self.task.use_ultimate:
             return False
-        if self.task._combat_settle.time is not None:
-            self.logger.info("click_ultimate blocked by combat_detect_settle")
-            return False
+
+        if self.ultimate_available():
+            if self.task._combat_settle.time is not None:
+                self.logger.info("click_ultimate blocked by combat_detect_settle")
+            while self.task._combat_settle.time is not None:
+                self.task.next_frame()
+                self.check_combat()
+                self.click_with_interval()
+                self.sleep(0.1)
+
         self.logger.debug("click_ultimate start")
         if not self.task.in_animation:
             result = self._try_available_action(
@@ -398,8 +405,6 @@ class BaseChar:
                 )
             self.task.next_frame()
 
-        self.task.next_frame()
-
         duration = self._wait_ultimate_unfreeze(start)
         self.task.in_animation = False
         self._ultimate_available = False
@@ -419,6 +424,9 @@ class BaseChar:
 
     def _wait_ultimate_unfreeze(self, start):
         self.logger.debug("waiting for time unfrozen")
+        self.task.wait_until(
+            lambda: self.has_cd("ultimate"), post_action=self.click_with_interval, time_out=0.5
+        )
         box_ultimate = self.task.get_box_by_name(Labels.box_ultimate)
         snapshot = box_ultimate.crop_frame(self.task.frame)
         processed_snapshot = gf.isolate_cd_to_black(snapshot)

@@ -134,6 +134,7 @@ class Hotori(BaseChar):
     def _wait_ultimate_unfreeze(self, start):
         self.logger.debug("waiting for time unfrozen")
         self.task.in_animation = False
+        self.task.wait_until(lambda: self.available("ultimate"), time_out=0.5)
         try:
             self.task.wait_until(
                 lambda: not self.available("ultimate"),
