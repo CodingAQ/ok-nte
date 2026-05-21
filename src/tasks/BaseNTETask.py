@@ -196,7 +196,7 @@ class BaseNTETask(BaseTask):
             return self.executor.interaction.operate(func, block, restore_cursor=restore_cursor)
         else:
             return func()
-        
+
     def move_mouse_relative(self, dx, dy):
         from src.interaction.NTEInteraction import NTEInteraction
 
@@ -974,18 +974,32 @@ class BaseNTETask(BaseTask):
         return self.find_feature(Labels.claim_icon, box=box)
 
     def get_stamina(self):
-        boxes = self.wait_ocr(
-            0.814, 0.029, 0.898, 0.083, raise_if_not_found=False, match=stamina_re
-        )
+        boxes = self.wait_ocr(0.814, 0.029, 0.898, 0.083, raise_if_not_found=False)
         if not boxes:
             self.screenshot("stamina_error")
             return -1
         current = 0
         for box in boxes:
+            box.name = self._fix_stamina_ocr_slash(box.name)
             if match := stamina_re.search(box.name):
                 current = int(match.group(1))
         self.info_set("当前体力", current)
         return current
+
+    def _fix_stamina_ocr_slash(self, text):
+        # 如果長度小於 4，說明數據本身不完整，直接返回原文字
+        if len(text) < 4:
+            return text
+
+        numerator = text[:-4]
+        maybe_slash = text[-4]
+        denominator = text[-3:]
+
+        # 如果倒數第 4 位被誤識成了 1、l 或 |
+        if maybe_slash in ["1", "l", "|"]:
+            return f"{numerator}/{denominator}"
+
+        return text
 
     def retry_on_action(self, action: Callable, reset_action: Callable | None = None, attempt=3):
         result = None
