@@ -8,6 +8,7 @@ from qfluentwidgets import FluentIcon
 
 from src import text_white_color
 from src.combat.BaseCombatTask import BaseCombatTask
+from src.heist_path.HeistEntrancePath import HeistEntrancePath
 from src.heist_path.HeistPathA import HeistPathA
 from src.Labels import Labels
 from src.tasks.NTEOneTimeTask import NTEOneTimeTask
@@ -130,7 +131,6 @@ class AutoHeistTask(NTEOneTimeTask, BaseCombatTask):
         self._interaction_watch_found = False
 
         self._round_label = ""
-        self._error_count = 0
 
     def run(self):
         super().run()
@@ -145,7 +145,8 @@ class AutoHeistTask(NTEOneTimeTask, BaseCombatTask):
     def _run_loop(self):
         self._start_quick_pick_loop()
         self._round_label = ""
-        self._error_count = 0
+        self.info_set("成功次数", 0)
+        self.info_set("失败次数", 0)
         self.info_set("总方斯获取数", 0)
         self.info_set("总粉爪币获取数", 0)
 
@@ -155,6 +156,10 @@ class AutoHeistTask(NTEOneTimeTask, BaseCombatTask):
         endless = total == 0
         skip_task = self.get_task_by_class(SkipDialogTask)
         while endless or count < total:
+            if not self._ensure_heist_entrance():
+                self.next_frame()
+                continue
+
             count += 1
             self._prepare_round(count, total, endless)
 
@@ -164,6 +169,25 @@ class AutoHeistTask(NTEOneTimeTask, BaseCombatTask):
 
             self.next_frame()
 
+    def _ensure_heist_entrance(self):
+        if self.wait_until(self.find_interac, time_out=10, raise_if_not_found=False):
+            return True
+
+        if self.is_in_team() and self.in_world():
+            self._return_to_heist_entrance()
+            return bool(self.wait_until(self.find_interac, time_out=20, raise_if_not_found=False))
+
+        return False
+
+    def _return_to_heist_entrance(self):
+        self.log_info("当前在大世界中，将传送到粉爪总部附近的塔")
+        self.click_nearest_map_teleport()
+        self.wait_in_team(settle_time=1)
+        try:
+            HeistEntrancePath(self).run_path()
+        except AbortException as e:
+            self.log_warning(e)
+
     def _start_quick_pick_loop(self):
         self.log_info("quick_pick_loop start")
         self.submit_periodic_task(0.01, self._quick_pick_loop)
@@ -172,16 +196,15 @@ class AutoHeistTask(NTEOneTimeTask, BaseCombatTask):
         self._dead_fighter_keys = []
         self._round_label = f"第 {count} 轮"
         round_text = "∞" if endless else f"{total}"
-
         self.info_set("轮次", f"{count} / {round_text}")
-        self.info_set("失败次数", self._error_count)
 
     def _add_rewards_to_summary(self, earnfcash, earnpcoin):
+        self.info_add("成功次数", 1)
         self.info_add("总方斯获取数", earnfcash)
         self.info_add("总粉爪币获取数", earnpcoin)
 
     def _run_heist_round(self, skip_task):
-        if not self.wait_until(self.find_interac, time_out=20, raise_if_not_found=True):
+        if not self.wait_until(self.find_interac, time_out=20, raise_if_not_found=False):
             return None
 
         self.enter_heist()
@@ -351,7 +374,7 @@ class AutoHeistTask(NTEOneTimeTask, BaseCombatTask):
 
     def abort_heist(self):
         self.log_round_info("出现异常，将退出粉爪副本")
-        self._error_count += 1
+        self.info_add("失败次数", 1)
 
         self.wait_until(
             lambda: (
