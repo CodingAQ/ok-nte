@@ -931,7 +931,7 @@ class BaseNTETask(BaseTask):
             if self.in_team_and_world():
                 return True
             self.handle_monthly_card()
-            texts = self.ocr(log=self.debug)
+            # texts = self.ocr(log=self.debug)
             # if login := self.find_boxes(
             #     texts, boundary=self.box_of_screen(0.3, 0.3, 0.7, 0.7), match="登录"
             # ):
