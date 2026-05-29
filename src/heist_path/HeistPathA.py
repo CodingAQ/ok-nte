@@ -81,8 +81,7 @@ class HeistPathA(HeistPath):
         self.sleep_send_key(0.5, key="lshift")
         self.sleep(0.5)
         self.send_key_up("w")
-        self.sleep_send_key(0.5, key="lshift")
-        self.sleep(3.0)
+        self.sleep_send_key(3.5, interval=0.7, key="lshift")
         self.send_key_up("a")
 
         self.sleep(0.04)
