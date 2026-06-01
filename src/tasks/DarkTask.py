@@ -58,9 +58,30 @@ class DarkTask(NTEOneTimeTask, BaseNTETask):
 
 
     def one_time(self):
-        self.send_key('f4', after_sleep=3)
-        self.operate_click(0.0911, 0.5907, after_sleep=2)
-        self.operate_click(0.8995, 0.9546, after_sleep=2)
+        self.wait_until(
+            lambda: self.ocr(0.03, 0.17, 0.15, 0.80, match=re.compile("黑暗赛车")),
+            pre_action=lambda: self.send_key("f4", action_name="dark_racing", interval=2),
+            time_out=30,
+            raise_if_not_found=True,
+        )
+
+        btn = self.wait_ocr(
+            0.03, 0.17, 0.15, 0.80, match=re.compile("黑暗赛车"), time_out=60, raise_if_not_found=True
+        )
+
+        self.wait_until(
+            lambda: self.ocr(0.81, 0.91, 0.94, 0.97, match=re.compile("开始比赛")),
+            pre_action=lambda: self.operate_click(btn, action_name="dark_racing", interval=1),
+            time_out=30,
+            raise_if_not_found=True,
+        )
+
+        self.wait_until(
+            lambda: not self.ocr(0.03, 0.17, 0.15, 0.80, match=re.compile("黑暗赛车")),
+            pre_action=lambda: self.operate_click(0.8995, 0.9546, interval=1),
+            time_out=30,
+            raise_if_not_found=True,
+        )
         self.go()
         while not self.ocr(x=0.7839, y=0.8769, to_x=0.9792, to_y=0.9806, match=re.compile(r'.*?\((\d+)\).*')):
             self.sleep(1)
