@@ -640,3 +640,9 @@ msgstr ""
 "Grave as operações para clicar na fase alvo em duas etapas:\n"
 "1. Clique na barra de rolagem até que o alvo fique visível (se não for necessário, clique no alvo)\n"
 "2. Clique no alvo"
+
+msgid "都市闲趣"
+msgstr "Hobbies"
+
+msgid "日常/周常"
+msgstr "Diárias/semanais"

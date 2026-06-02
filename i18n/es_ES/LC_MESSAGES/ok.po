@@ -638,3 +638,9 @@ msgstr ""
 "Graba las operaciones para hacer clic en la fase objetivo en dos pasos:\n"
 "1. Haz clic en la barra de desplazamiento hasta que el objetivo sea visible (si no hace falta, haz clic en el objetivo)\n"
 "2. Haz clic en el objetivo"
+
+msgid "都市闲趣"
+msgstr "Aficiones"
+
+msgid "日常/周常"
+msgstr "Diarias/semanales"
