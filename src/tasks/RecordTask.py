@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt
 from qfluentwidgets import InfoBar, InfoBarPosition
 
 from src.tasks.BaseNTETask import BaseNTETask
+from src.ui.util import show_dialog_and_wait
 
 logger = Logger.get_logger(__name__)
 
@@ -19,6 +20,10 @@ DEFAULT_RECORD_INSTRUCTION = "Record operations"
 RECORD_CONFIG_FOLDER = "configs/records"
 RECORD_OPERATIONS_KEY = "operations"
 SCROLL_MERGE_INTERVAL = 0.35
+NOTIFICATION = (
+    "No recorded operations were found. Please wait for the recording prompt, "
+    "then follow the instructions carefully to record your actions."
+)
 
 
 class RecordTask(BaseNTETask):
@@ -43,9 +48,20 @@ class RecordTask(BaseNTETask):
                 self.CONF_RESET_RECORD: {"type": "button", "callback": self.reset_record},
             }
         )
-        self.config_description.update({
-            self.CONF_RESET_RECORD: "清空已记录的操作",
-        })
+        self.config_description.update(
+            {
+                self.CONF_RESET_RECORD: "清空已记录的操作",
+            }
+        )
+        self.tr(NOTIFICATION)
+
+    def run(self):
+        operations = self.load_recorded_operations()
+        if not operations:
+            self.show_notification()
+
+    def show_notification(self):
+        show_dialog_and_wait(self.tr(self.name), self.tr(NOTIFICATION), close_delay_seconds=2)
 
     def reset_record(self, *args, **kwargs):
         self.record_config[RECORD_OPERATIONS_KEY] = []
@@ -487,12 +503,13 @@ class RecordTask(BaseNTETask):
                 painter.setFont(font)
                 metrics = painter.fontMetrics()
                 padding = 6
-                offset = 14
+                offset_x = max(1, round(widget.width() * 14 / 1280))
+                offset_y = max(1, round(widget.height() * 14 / 720))
                 text_rect = metrics.boundingRect(QRect(0, 0, 360, 1000), Qt.TextWordWrap, text)
                 box_width = min(max(text_rect.width() + padding * 2, 120), widget.width())
                 box_height = text_rect.height() + padding * 2
-                box_x = min(max(0, mx + offset), max(0, widget.width() - box_width))
-                box_y = min(max(0, my + offset), max(0, widget.height() - box_height))
+                box_x = min(max(0, mx + offset_x), max(0, widget.width() - box_width))
+                box_y = min(max(0, my + offset_y), max(0, widget.height() - box_height))
 
                 painter.setPen(Qt.NoPen)
                 painter.setBrush(QColor(0, 0, 0, 170))
