@@ -5,8 +5,6 @@ from threading import Event
 from ok import Logger, get_path_relative_to_exe
 from PySide6.QtCore import QObject
 
-from src.sound_trigger.SoundCombatContext import SoundCombatContext
-
 logger = Logger.get_logger(__name__)
 
 
@@ -27,6 +25,8 @@ class Globals(QObject):
 
     def stop(self):
         self._sound_context_stop_event.set()
+        from src.sound_trigger.SoundCombatContext import SoundCombatContext
+
         SoundCombatContext().shutdown()
         self.shutdown_thread_pool_executor()
 
@@ -206,6 +206,25 @@ class Globals(QObject):
         self.openvino_model_async.clear_cache()
 
     def init_sound_context(self):
+        try:
+            import time
+
+            from ok import og
+
+            # og.gui_ready.wait(timeout=30)
+            use_gui = og.ok.config.get("use_gui") and not og.ok.args.get('headless', False)
+            deadline = time.time() + 30
+            if use_gui:
+                while time.time() < deadline:
+                    if og.app.main_window is not None:
+                        if og.app.main_window.isVisible():
+                            break
+                    time.sleep(1)
+        except Exception as e:
+            logger.error("init sound context delay error", e)
+
+        from src.sound_trigger.SoundCombatContext import SoundCombatContext
+
         context = SoundCombatContext()
         if self._sound_context_stop_event.is_set():
             return
