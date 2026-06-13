@@ -423,11 +423,11 @@ class TeamManagerTab(CustomTab):
         self.last_scan_results = []
         self.logger.info("Init TeamManagerTab")
 
-        self.vbox = QVBoxLayout(self)
+        self.vbox = self.vBoxLayout
         self.vbox.setContentsMargins(20, 20, 20, 20)
         self.vbox.setSpacing(20)
 
-        self.scan_card = CardWidget(self)
+        self.scan_card = CardWidget(self.view)
         self.scan_layout = QVBoxLayout(self.scan_card)
         self.scan_layout.setContentsMargins(16, 16, 16, 16)
         self.scan_layout.setSpacing(12)
@@ -469,7 +469,7 @@ class TeamManagerTab(CustomTab):
 
         self.vbox.addWidget(self.scan_card)
 
-        self.fixed_team_card = CardWidget(self)
+        self.fixed_team_card = CardWidget(self.view)
         self.fixed_team_layout = QVBoxLayout(self.fixed_team_card)
         self.fixed_team_layout.setContentsMargins(16, 16, 16, 16)
         self.fixed_team_layout.setSpacing(12)
