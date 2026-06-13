@@ -520,11 +520,11 @@ class BaseChar:
 
             if available():
                 self.logger.debug(f"{action_type} available click/send")
-                if send_click:
-                    self.click(action_name=f"{action_type}_click", interval=0.25)
-                    self.sleep(0.001, sleep_check=False)
                 action_time = time.time()
                 sent = send_action()
+                if send_click:
+                    self.sleep(0.001, sleep_check=False)
+                    self.click(action_name=f"{action_type}_click", interval=0.5)
                 if sent is not False and not result["clicked"]:
                     result["clicked"] = True
                     result["action_time"] = action_time
@@ -600,7 +600,7 @@ class BaseChar:
             result = self._try_available_action(
                 "ultimate",
                 self.ultimate_available,
-                lambda: self.send_ultimate_key(action_name="ultimate_send", interval=0.25),
+                lambda: self.send_ultimate_key(action_name="ultimate_send", interval=0.2),
                 send_click=send_click,
                 has_animation=True,
             )
@@ -728,7 +728,7 @@ class BaseChar:
             "skill",
             self.skill_available,
             lambda: self.send_skill_key(
-                down_time=down_time, action_name="skill_send", interval=0.25
+                down_time=down_time, action_name="skill_send", interval=0.2
             ),
             send_click=send_click,
             time_out=the_time_out,

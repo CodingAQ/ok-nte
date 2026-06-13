@@ -554,9 +554,9 @@ class BaseCombatTask(CombatCheck):
                 self.sleep(0.01)
                 continue
 
-            self.click(action_name="switch_char_click", interval=0.25)
+            self.send_key(switch_to.index + 1, action_name="switch_char_send", interval=0.2)
             self.sleep(0.001)
-            self.send_key(switch_to.index + 1, action_name="switch_char_send", interval=0.25)
+            self.click(action_name="switch_char_click", interval=0.5)
             if switch_key_sent_at <= 0:
                 switch_key_sent_at = current_time
 
