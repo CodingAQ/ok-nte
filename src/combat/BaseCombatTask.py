@@ -1,5 +1,6 @@
 import re
 import time
+from dataclasses import dataclass
 from threading import Lock, Thread
 from typing import List
 
@@ -33,6 +34,23 @@ class CharDeadException(NotInCombatException):
     """角色死亡异常。"""
 
     pass
+
+
+@dataclass
+class SleepCheckSkip:
+    """sleep_check 中可跳过的检查项。"""
+
+    sound_combat_context: bool = False
+    check_combat: bool = False
+
+    @property
+    def all(self) -> bool:
+        return self.sound_combat_context and self.check_combat
+
+    @all.setter
+    def all(self, value: bool):
+        self.sound_combat_context = value
+        self.check_combat = value
 
 
 class BaseCombatTask(CombatCheck):
@@ -70,7 +88,7 @@ class BaseCombatTask(CombatCheck):
             **kwargs: 传递给父类的关键字参数。
         """
         super().__init__(*args, **kwargs)
-        self.skip_sleep_check = False
+        self.sleep_check_skip = SleepCheckSkip()
         self.sleep_check_interval = 0.1
         self.chars: list[BaseChar] = []
         self.mouse_pos = None  # 当前鼠标位置
@@ -502,72 +520,80 @@ class BaseCombatTask(CombatCheck):
             f"has_intro {has_intro}"
         )
 
-        while True:
-            self.check_combat()
-            current_time = time.time()
-            switch_to_name = self._get_char_log_name(switch_to)
-            frame = self.frame
+        try:
+            self.sleep_check_skip.check_combat = True
 
-            detected_reason, last_index_check = self._switch_detection_reason(
-                switch_to,
-                health_snapshot,
-                frame,
-                switch_key_sent_at,
-                current_time,
-                last_index_check,
-                start_time,
-                time_out,
-            )
-            if detected_reason:
-                logger.info(f"{log_prefix} detected by {detected_reason}")
-                self._set_current_char(current_char, switch_to, has_intro)
-                break
+            while True:
+                current_time = time.time()
+                elapsed = current_time - start_time
+                switch_to_name = self._get_char_log_name(switch_to)
+                frame = self.next_frame()
 
-            intro_ready = current_char is not None and (free_intro or current_char.is_cycle_full())
-            if retry_intro and not has_intro and not intro_replanned and intro_ready:
-                intro_replanned = True
-                new_switch_to, new_has_intro = self._decide_switch_to(
-                    current_char,
-                    free_intro,
-                    require_intro=True,
+                if self.is_in_team(frame=frame):
+                    if self._in_combat and not self.in_combat():
+                        self.raise_not_in_combat("combat check not in combat")
+                else:
+                    info = f"{log_prefix} not in team {elapsed}s"
+                    if elapsed > self.switch_char_time_out:
+                        self.raise_not_in_combat(info)
+
+                    self.run_with_interval(lambda: logger.info(info), interval=1)
+                    self.sleep(0.01)
+                    continue
+
+                detected_reason, last_index_check = self._switch_detection_reason(
+                    switch_to,
+                    health_snapshot,
+                    frame,
+                    switch_key_sent_at,
+                    current_time,
+                    last_index_check,
+                    start_time,
+                    time_out,
                 )
-                if new_has_intro and new_switch_to != current_char:
-                    if not self.combat_planner.has_strict_route(current_char):
-                        self._wait_switch_in_guard(current_char, new_switch_to, new_has_intro)
-                    switch_to = new_switch_to
-                    has_intro = new_has_intro
-                    switch_to.has_intro = True
-                    switch_to_name = self._get_char_log_name(switch_to)
-                    logger.info(
-                        f"{log_prefix} updated target to {switch_to_name}, "
-                        f"has_intro {switch_to.has_intro}"
-                    )
+                if detected_reason:
+                    logger.info(f"{log_prefix} detected by {detected_reason}")
+                    self._set_current_char(current_char, switch_to, has_intro)
+                    break
 
-            if not self.is_in_team(frame=frame):
-                logger.info(
-                    f"not in world while switching {current_char_name} -> {switch_to_name},"
-                    f" {current_time - start_time}"
+                intro_ready = current_char is not None and (
+                    free_intro or current_char.is_cycle_full()
                 )
-                if current_time - start_time > self.switch_char_time_out:
-                    self.raise_not_in_combat(
-                        f"switch too long failed {current_char_name} -> {switch_to_name},"
-                        f" {current_time - start_time}"
+                if retry_intro and not has_intro and not intro_replanned and intro_ready:
+                    intro_replanned = True
+                    new_switch_to, new_has_intro = self._decide_switch_to(
+                        current_char,
+                        free_intro,
+                        require_intro=True,
                     )
+                    if new_has_intro and new_switch_to != current_char:
+                        if not self.combat_planner.has_strict_route(current_char):
+                            self._wait_switch_in_guard(current_char, new_switch_to, new_has_intro)
+                        switch_to = new_switch_to
+                        has_intro = new_has_intro
+                        switch_to.has_intro = True
+                        switch_to_name = self._get_char_log_name(switch_to)
+                        logger.info(
+                            f"{log_prefix} updated target to {switch_to_name}, "
+                            f"has_intro {switch_to.has_intro}"
+                        )
+
+                self.send_key(switch_to.index + 1, action_name="switch_char_send", interval=0.2)
+                self.sleep(0.001)
+                self.click(action_name="switch_char_click", interval=0.5)
+                if switch_key_sent_at <= 0:
+                    switch_key_sent_at = current_time
+
+                if elapsed > time_out:
+                    if self.debug:
+                        self.screenshot(
+                            f"switch_not_detected_{current_char_name}_to_{switch_to_name}"
+                        )
+                    self.raise_not_in_combat(f"{log_prefix} failed {switch_to_name}")
+
                 self.sleep(0.01)
-                continue
-
-            self.send_key(switch_to.index + 1, action_name="switch_char_send", interval=0.2)
-            self.sleep(0.001)
-            self.click(action_name="switch_char_click", interval=0.5)
-            if switch_key_sent_at <= 0:
-                switch_key_sent_at = current_time
-
-            if current_time - start_time > time_out:
-                if self.debug:
-                    self.screenshot(f"switch_not_detected_{current_char_name}_to_{switch_to_name}")
-                self.raise_not_in_combat(f"{log_prefix} failed {switch_to_name}")
-
-            self.sleep(0.01)
+        finally:
+            self.sleep_check_skip.check_combat = False
 
         if has_intro and current_char:
             if self.record_element_ring_reaction(current_char, switch_to):
@@ -810,16 +836,26 @@ class BaseCombatTask(CombatCheck):
             raise_if_not_found=raise_if_not_found,
         )
 
-    def sleep_check(self):
-        if self.skip_sleep_check:
-            return
+    @property
+    def skip_sleep_check(self) -> bool:
+        return self.sleep_check_skip.all
 
-        if not self.in_animation and SoundCombatContext.should_interrupt_combat():
+    @skip_sleep_check.setter
+    def skip_sleep_check(self, value: bool):
+        self.sleep_check_skip.all = value
+
+    def sleep_check(self):
+        if (
+            not self.sleep_check_skip.sound_combat_context
+            and not self.in_animation
+            and SoundCombatContext.should_interrupt_combat()
+        ):
             self.log_info("Combat sleep interrupted by sound action")
             SoundCombatContext().execute_pending_action()
             SoundCombatContext.wait_for_resume()
 
-        self.check_combat()
+        if not self.sleep_check_skip.check_combat:
+            self.check_combat()
 
     def _apply_sound_config(self):
         if self.sound_config:
