@@ -47,6 +47,7 @@ class Labels(str, Enum):
     in_domain = 'in_domain'
     interactable = 'interactable'
     is_current_char = 'is_current_char'
+    launcher_popup_close = 'launcher_popup_close'
     launcher_start_game = 'launcher_start_game'
     login_setting = 'login_setting'
     lv = 'lv'
