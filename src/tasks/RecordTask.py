@@ -63,7 +63,9 @@ class RecordTask(BaseNTETask):
             self.show_notification()
 
     def show_notification(self):
-        show_dialog_and_wait(self.tr(self.name), self.tr(NOTIFICATION), close_delay_seconds=2)
+        show_dialog_and_wait(
+            self.tr(self.name), self.tr(NOTIFICATION), rich_text=False, close_delay_seconds=2
+        )
 
     def reset_record(self, *args, **kwargs):
         self.record_config[RECORD_OPERATIONS_KEY] = []
@@ -178,7 +180,7 @@ class RecordTask(BaseNTETask):
                         int(operation["y"] * self.height),
                         count,
                     ),
-                    block=True
+                    block=True,
                 )
             previous_operation = operation
 
