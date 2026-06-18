@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
-from ok import Box
 
+from ok import Box
 from src.Labels import Labels
 from src.utils import game_filters as gf
 from src.utils import image_utils as iu

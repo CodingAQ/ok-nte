@@ -17,7 +17,7 @@ from ok import BaseTask, Box, CannotFindException, Logger, WaitFailedException, 
 from src.Labels import Labels
 from src.scene.NTEScene import NTEScene
 from src.scene.ScreenPosition import ScreenPosition
-from src.tasks.CharUIMixin import CharUIMixin
+from src.tasks.mixin.CharUIMixin import CharUIMixin
 from src.utils import image_utils as iu
 
 logger = Logger.get_logger(__name__)
@@ -1099,6 +1099,17 @@ class BaseNTETask(CharUIMixin, BaseTask):
             return og.app.locale.name()
         except Exception:
             return None
+        
+    def open_f1_domain_page(self):
+        self.openF1panel()
+
+        box = self.box_of_screen(0.785, 0.022, 0.814, 0.076, name="stamina_icon")
+        self.wait_until(
+            lambda: self.find_one(Labels.stamina_icon, box=box),
+            pre_action=lambda: self.operate_click(0.0563, 0.4924, interval=0.5),
+            settle_time=0.5,
+            time_out=10,
+        )
 
 
 def interac_mask(image):
