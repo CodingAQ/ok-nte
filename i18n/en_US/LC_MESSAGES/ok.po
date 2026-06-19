@@ -1005,3 +1005,9 @@ msgstr "Cinema Date"
 
 msgid "约会目标"
 msgstr "Dating Target"
+
+msgid "自动小旋风"
+msgstr "Auto Whirlwind"
+
+msgid "可交互「小旋风」下按开始"
+msgstr "Press start under interactive 'Whirlwind'"

@@ -1005,3 +1005,9 @@ msgstr "Cita en el cine"
 
 msgid "约会目标"
 msgstr "Objetivo de cita"
+
+msgid "自动小旋风"
+msgstr "Torbellino automático"
+
+msgid "可交互「小旋风」下按开始"
+msgstr "Presione iniciar debajo del 'Torbellino' interactivo"

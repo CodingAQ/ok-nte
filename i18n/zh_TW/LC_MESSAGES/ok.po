@@ -1005,3 +1005,9 @@ msgstr "影院約會"
 
 msgid "约会目标"
 msgstr "約會目標"
+
+msgid "自动小旋风"
+msgstr "自動小旋風"
+
+msgid "可交互「小旋风」下按开始"
+msgstr "可交互「小旋風」下按開始"

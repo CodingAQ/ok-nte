@@ -988,3 +988,9 @@ msgstr ""
 
 msgid "约会目标"
 msgstr ""
+
+msgid "自动小旋风"
+msgstr ""
+
+msgid "可交互「小旋风」下按开始"
+msgstr ""
