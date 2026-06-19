@@ -45,7 +45,7 @@ The scanner is a helper, not a substitute for reading the task. It finds common 
 
 ## Catalog Rules
 
-- Append new entries near the end if the catalog is not otherwise sorted.
+- Append new entries directly as plain text to the end of the PO file (safely handling line endings by reading with `newline=""` and writing back with `newline="\n"` to avoid double carriage returns `\r\r\n`), rather than using `polib.POFile.save()` which rewrites the entire file and alters the formatting/wrapping of other entries.
 - Do not add log-only strings unless the user explicitly asks; focus on UI strings from task metadata/config.
 - Keep `msgid` exactly equal to the source string used by the code.
 - Empty `msgstr` is acceptable only when that locale intentionally falls back to the source language.
