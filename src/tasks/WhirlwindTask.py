@@ -134,7 +134,7 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
 
         self.click(key="middle")
         self.sleep(0.5)
-        self.send_key("w")
+        self.send_key("w", down_time=0.01)
         self.sleep(0.5)
         self.next_frame()
 
