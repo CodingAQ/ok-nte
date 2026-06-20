@@ -46,21 +46,24 @@
 </p>
 
 - **Background Operation**: Automate game actions while in the background.
-- **One-click Dailies**: Automatically complete daily routines.
+- **One-click Dailies**: Automatically complete daily routines. Supports sub-items: EXP & Beetle Coins, Ability Upgrade, Arc Ascension, Console, Cafe Tasks, and Cinema Date.
 - **Auto Fishing**: Fully automated fishing process.
-- **Auto Combat**: Computer vision-based combat algorithm.
+- **Auto Combat**: Computer vision-based combat algorithm, supported by **Character Center** for custom combo lists and feature management.
 - **Anomaly**: Automate Anomaly challenges.
+- **Auto Whirlwind**: Automatically completes 'Whirlwind' challenges.
 - **Auto Drum Rhythm Game**: Automatically complete drum rhythm games.
+- **Auto Piano**: Automatically analyzes MIDI tracks and plays the piano.
 - **Owner's Selection**: Automatically loop entering and exiting stages (requires an in-game AFK build).
 - **Skip Dialog**: Rapidly skip through story dialogs.
 - **Fast Travel**: Automatic map teleportation.
 - **Pink Paws Heist Convenience Features**
   - **Quick Pickup**: Quickly pick up items in stages.
   - **Auto Character Switch for Sprinting**: Automatically switch characters to maintain fast running.
-- **Character Center**
+- **Character Center**: Provides support for **Auto Combat**.
   - **Character Management**: Supports custom combo lists.
   - **Feature Management**: Adapts to different character skins.
 - **Audio Driven**: Auto dodge and counter based on audio feedback.
+- **Bagel Agent**: Automatically posts, replies, and likes in the Bagel community, or assists in generating copy in assistant mode.
 
 ## 🖥️ System Requirements & Compatibility
 
