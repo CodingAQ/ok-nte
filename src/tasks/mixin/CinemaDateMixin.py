@@ -1,25 +1,13 @@
 import re
 import time
-from typing import TYPE_CHECKING
 
 from ok import Box
 from src.Labels import Labels
+from src.tasks.BaseNTETask import BaseNTETask
 from src.utils import image_utils as iu
 
-if TYPE_CHECKING:
-    from src.tasks.BaseNTETask import BaseNTETask
 
-    _TaskProxy = BaseNTETask
-else:
-
-    class _TaskProxy:
-        pass
-
-
-class CinemaDateMixin(_TaskProxy):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+class CinemaDateMixin(BaseNTETask):
     def run_cinema_date(self, target=""):
         self.ensure_main(esc=True, time_out=60)
         self._tp_to_cinema()
@@ -37,7 +25,7 @@ class CinemaDateMixin(_TaskProxy):
                 self.click(0.029, 0.053, move=True)
                 self.sleep(0.1)
                 self.send_key_up("lalt")
-            
+
             self.run_with_interval(lambda: self.operate(merged_action, block=True), interval=2)
 
         self.wait_until(self.is_in_team, post_action=post, time_out=30)
