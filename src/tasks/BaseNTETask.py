@@ -774,6 +774,8 @@ class BaseNTETask(CharUIMixin, BaseTask):
         return False
 
     def handle_monthly_card(self):
+        if self.is_in_team():
+            return False
         monthly_card = self.find_monthly_card()
         # self.screenshot('monthly_card1')
         if monthly_card is not None:

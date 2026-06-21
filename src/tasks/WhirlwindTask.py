@@ -58,6 +58,11 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
         finally:
             self._release_navigation_keys()
 
+    def sleep_check(self):
+        super().sleep_check()
+        if self.should_check_monthly_card():
+            self.handle_monthly_card()
+
     def _dodge_with_skill(self):
         self.send_key(self.get_skill_key())
 
