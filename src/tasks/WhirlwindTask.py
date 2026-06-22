@@ -40,9 +40,11 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
             pass
         except Exception as e:
             self.log_error("WhirlwindTask Error", e)
+        finally:
+            SoundCombatContext().clear_task_if(self)
 
     def do_run(self):
-        SoundCombatContext().update_task(self, dodge_action=self._dodge_with_skill)
+        self._apply_sound_config(dodge_action=self._dodge_with_skill)
         cond1 = not self.is_boss()
         cond2 = not self.find_interac()
         try:

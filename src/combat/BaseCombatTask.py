@@ -879,7 +879,7 @@ class BaseCombatTask(CombatCheck):
         if not self.sleep_check_skip.check_combat:
             self.check_combat()
 
-    def _apply_sound_config(self):
+    def _apply_sound_config(self, dodge_action=None, counter_action=None):
         if self.sound_config:
             enable = self.sound_config.get("Enable Sound Trigger", True)
             dodge_all_attacks = self.sound_config.get("Dodge All Attacks", True)
@@ -890,7 +890,9 @@ class BaseCombatTask(CombatCheck):
             SoundCombatContext().update_config(
                 enable, dodge_all_attacks, dodge_thresh, counter_thresh
             )
-        SoundCombatContext().update_task(self)
+        SoundCombatContext().update_task(
+            self, dodge_action=dodge_action, counter_action=counter_action
+        )
 
     def check_combat(self):
         """检查当前是否处于战斗状态, 如果不是则抛出异常。"""
