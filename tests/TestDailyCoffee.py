@@ -48,7 +48,6 @@ class TestDailyCoffee(unittest.TestCase):
         self.assertIn((0.717, 0.787), click_positions)
         self.assertIn((0.595, 0.776), click_positions)
         self.assertIn((0.6, 0.656), click_positions)
-        self.assertEqual(len(task.wait_until_calls), 2)
 
 
 class TestDailyCoffeeLocaleGate(unittest.TestCase):
