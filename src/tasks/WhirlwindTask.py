@@ -11,14 +11,14 @@ from src.tasks.NTEOneTimeTask import NTEOneTimeTask
 
 class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
     TARGET_NAVIGATION_ANGLE = -156
-    NAVIGATION_ANGLE_TOLERANCE = 4
+    NAVIGATION_ANGLE_TOLERANCE = 4.5
     NAVIGATION_FAILED_TIMEOUT = 4
     NAVIGATION_FAILED_RETRY_INTERVAL = 0.25
     NAVIGATION_CONFIRM_DELAY = 0.5
     NAVIGATION_CLAMP_TIMEOUT = 20
     NAVIGATION_CLAMP_ENTER_ANGLE = 15
     NAVIGATION_CLAMP_LOOP_INTERVAL = 0.05
-    NAVIGATION_CLAMP_MICRO_INTERVAL = 0.5
+    NAVIGATION_CLAMP_MICRO_INTERVAL = 0.25
     CONFIG_DIFF_OPTION = "难度选项"
 
     def __init__(self, *args, **kwargs):
@@ -70,24 +70,11 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
         self.send_key(self.get_skill_key())
 
     def start_interac(self):
-        if not self.find_dialog_history():
-            self.send_key("f", after_sleep=0.5)
-            self.send_key_down("w")
-            try:
-                self.wait_until(
-                    self.find_dialog_history,
-                    pre_action=self.scroll_and_interac,
-                    time_out=1.1,
-                )
-            finally:
-                self.send_key_up("w")
-
-            self.wait_until(
-                self.find_dialog_history,
-                pre_action=self.scroll_and_interac,
-                time_out=30,
-                raise_if_not_found=True
-            )
+        self.wait_until(
+            self.find_dialog_history,
+            pre_action=self.scroll_and_interac,
+            time_out=30,
+        )
 
         diff_option = self.config.get(self.CONFIG_DIFF_OPTION, 1)
         ratio_x = 0.701
@@ -157,16 +144,17 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
                 error = self._normalize_angle(self.TARGET_NAVIGATION_ANGLE - angle)
                 if abs(error) <= self.NAVIGATION_ANGLE_TOLERANCE:
                     if self._confirm_navigation_angle():
-                        return True
+                        return self._advance_after_navigation(self._navigation_side_key(angle))
                     continue
 
                 side_key = self._navigation_side_key(angle)
                 if self._is_navigation_clamped(last_error, error):
-                    return self._navigate_after_clamp(side_key)
+                    return self._advance_after_navigation(side_key)
 
                 last_error = error
                 self._fine_tune_navigation(side_key, abs(error), angle)
         finally:
+            self.sleep(0.25)
             self.send_key("lctrl")
             self._release_navigation_keys()
 
@@ -177,23 +165,23 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
             return False
         return max(abs(last_error), abs(current_error)) <= self.NAVIGATION_CLAMP_ENTER_ANGLE
 
-    def _navigate_after_clamp(self, side_key):
+    def _advance_after_navigation(self, side_key):
         start = time.time()
         next_micro_tune = 0
         self.send_key_down("w")
         try:
             while time.time() - start < self.NAVIGATION_CLAMP_TIMEOUT:
+                if self.find_dialog_history():
+                    return True
+                self.scroll_and_interac()
+
                 angle = self._navigation_angle()
                 if angle is not None:
                     error = self._normalize_angle(self.TARGET_NAVIGATION_ANGLE - angle)
                     if abs(error) <= self.NAVIGATION_ANGLE_TOLERANCE:
-                        return True
+                        continue
                     side_key = self._navigation_side_key(angle)
 
-                if self.find_dialog_history():
-                    return True
-
-                self.scroll_and_interac()
                 now = time.time()
                 if now >= next_micro_tune:
                     self._micro_tune_after_clamp(side_key)
