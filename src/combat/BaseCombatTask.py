@@ -547,8 +547,7 @@ class BaseCombatTask(CombatCheck):
                 frame = self.next_frame()
 
                 if self.is_in_team(frame=frame):
-                    if self._in_combat and not self.in_combat():
-                        self.raise_not_in_combat("combat check not in combat")
+                    self.check_combat()
                 else:
                     info = f"{log_prefix} not in team {elapsed}s"
                     if elapsed > self.switch_char_time_out:
@@ -919,6 +918,11 @@ class BaseCombatTask(CombatCheck):
                 # if self.debug:
                 #     self.screenshot('not_in_combat_calling_check_combat')
                 self.raise_not_in_combat("combat check not in combat")
+
+    def in_combat(self, target=False):
+        with self.skip_sleep_checks() as skip:
+            skip.check_combat = True
+            return super().in_combat(target=target)
 
     def set_key(self, key, box):
         best = self.find_best_match_in_box(box, ["t", "e", "r", "q"], threshold=0.7)

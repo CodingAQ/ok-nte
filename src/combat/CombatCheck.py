@@ -29,6 +29,17 @@ class CombatDetectPhase(Enum):
 
 
 @dataclass(frozen=True)
+class CombatDetectResult:
+    value: Optional[bool]
+    source: str
+    lv_ret: Optional[bool] = None
+    target_ret: Optional[bool] = None
+    target_pending: bool = False
+    exhaustive: bool = False
+    force: bool = False
+
+
+@dataclass(frozen=True)
 class CombatDetectPolicy:
     miss_required: int = 1
     uncertain_seconds: float = 0.4
@@ -79,6 +90,8 @@ class CombatCheck(BaseNTETask):
         self._find_lv_latency = 0
         self._find_lv_async_started_at = 0
         self._last_combat_detect_pending_log = 0
+        self._last_combat_detect_hit_log = 0
+        self._last_combat_detect_source = ""
         self._turn_on_retarget = False
 
     @contextmanager
@@ -118,7 +131,7 @@ class CombatCheck(BaseNTETask):
         self.scene.set_not_in_combat()
         return False
 
-    def get_current_char(self) -> "BaseChar":
+    def get_current_char(self, raise_exception=False) -> "BaseChar":
         """
         获取当前角色。
         此方法必须由子类实现。
@@ -214,15 +227,12 @@ class CombatCheck(BaseNTETask):
         return False
 
     def in_combat(self, target=False):
-        self.in_sleep_check = True
         try:
             return self.do_check_in_combat(target)
         except TaskDisabledException:
             raise
         except Exception as e:
             logger.error("do_check_in_combat", e)
-        finally:
-            self.in_sleep_check = False
 
     @property
     def combat_detect_uncertain(self) -> bool:
@@ -231,14 +241,14 @@ class CombatCheck(BaseNTETask):
     def _reset_combat_detect_state(self):
         self.combat_detect_state.reset()
 
-    def _update_combat_detect_state(self, combat_detect) -> CombatDetectPhase:
+    def _update_combat_detect_state(self, combat_detect: CombatDetectResult) -> CombatDetectPhase:
         now = time.time()
-        if combat_detect is True:
+        if combat_detect.value is True:
             self._reset_combat_detect_state()
             return CombatDetectPhase.IN_COMBAT
         if self.combat_detect_state.uncertain_until is not None:
             return self._uncertain_combat_state(combat_detect, now)
-        if combat_detect is None:
+        if combat_detect.value is None:
             return CombatDetectPhase.IN_COMBAT
 
         policy = self.combat_detect_policy
@@ -253,8 +263,10 @@ class CombatCheck(BaseNTETask):
             return CombatDetectPhase.UNCERTAIN
         return CombatDetectPhase.VERIFY_TARGET
 
-    def _uncertain_combat_state(self, combat_detect, now: float) -> CombatDetectPhase:
-        if self.combat_detect_state.uncertain_until > now or combat_detect is None:
+    def _uncertain_combat_state(
+        self, combat_detect: CombatDetectResult, now: float
+    ) -> CombatDetectPhase:
+        if self.combat_detect_state.uncertain_until > now or combat_detect.value is None:
             self._wait_for_retarget_detect(now)
             return CombatDetectPhase.UNCERTAIN
         return CombatDetectPhase.VERIFY_TARGET
@@ -285,86 +297,103 @@ class CombatCheck(BaseNTETask):
             return self.async_combat_detect(exhaustive=True)
         return self.async_combat_detect()
 
+    def _log_combat_detect_hit(self, source: str):
+        now = time.time()
+        if source == self._last_combat_detect_source and now - self._last_combat_detect_hit_log < 1:
+            return
+        self._last_combat_detect_source = source
+        self._last_combat_detect_hit_log = now
+        logger.debug(f"CombatDetect hit: source={source}")
+
+    def _set_in_combat(self, source: str):
+        self._log_combat_detect_hit(source)
+        return self.scene.set_in_combat()
+
     def do_check_in_combat(self, target):
         if self.in_animation:
+            self._log_combat_detect_hit("in_animation")
             return True
         if self._in_combat:
-            if self.get_current_char() is None:
-                return self.reset_to_false(reason="current_char is None")
-            if self.scene.in_combat() is not None:
-                return self.scene.in_combat()
-            if current_char := self.get_current_char():
-                if current_char.skip_combat_check():
-                    return self.scene.set_in_combat()
-            if not self.on_combat_check():
-                self.log_info("on_combat_check failed")
-                return self.reset_to_false(reason="on_combat_check failed")
-            if self.is_boss():
-                self._reset_combat_detect_state()
-                return self.scene.set_in_combat()
-            # else:
-            #     frame = getattr(self, 'cache_frame', None)
-            #     if frame is not None:
-            #         cv2.imwrite(f"cache_frame_{int(time.time())}.png", frame)
-            # if self.has_target():
-            #     self.last_in_realm_not_combat = 0
-            #     return self.scene.set_in_combat()
-            if self.combat_end_condition is not None and self.combat_end_condition():
-                return self.reset_to_false(reason="end condition reached")
+            return self._check_active_combat()
+        return self._try_enter_combat(target)
 
-            combat_detect = self._detect_combat_signal()
-            combat_phase = self._update_combat_detect_state(combat_detect)
-            if combat_phase is CombatDetectPhase.IN_COMBAT:
-                return self.scene.set_in_combat()
-            if combat_phase is CombatDetectPhase.UNCERTAIN:
-                return self.scene.set_in_combat()
+    def _check_active_combat(self):
+        if self.scene.in_combat() is not None:
+            self._log_combat_detect_hit(f"scene_cache={self.scene.in_combat()}")
+            return self.scene.in_combat()
 
-            if self.target_enemy(wait=True, turn=self._turn_on_retarget):
-                self._reset_combat_detect_state()
-                self.find_lv_future = None
-                self._lv_async = None
-                self.openvino_clear_cache()
-                logger.debug("retarget enemy succeeded")
-                return self.scene.set_in_combat()
-            if self.should_check_monthly_card() and self.handle_monthly_card():
-                return self.scene.set_in_combat()
-            logger.error("target_enemy failed, try recheck break out of combat")
-            return self.reset_to_false(reason="target enemy failed")
-        else:
-            from src.tasks.trigger.AutoCombatTask import AutoCombatTask
+        current_char = self.get_current_char(raise_exception=True)
+        if current_char.skip_combat_check():
+            return self._set_in_combat(f"skip_combat_check:{current_char}")
 
-            @cache
-            def has_target():
-                return self.find_target()
+        if not self.on_combat_check():
+            self.log_info("on_combat_check failed")
+            return self.reset_to_false(reason="on_combat_check failed")
 
-            @cache
-            def has_lv():
-                return bool(self.find_lv())
+        if self.is_boss():
+            self._reset_combat_detect_state()
+            return self._set_in_combat("boss")
 
-            @cache
-            def has_health_bar():
-                return self.has_health_bar()
+        if self.combat_end_condition is not None and self.combat_end_condition():
+            return self.reset_to_false(reason="end condition reached")
 
-            @cache
-            def is_boss():
-                return self.is_boss()
+        combat_detect = self._detect_combat_signal()
+        combat_phase = self._update_combat_detect_state(combat_detect)
+        if combat_phase is CombatDetectPhase.IN_COMBAT:
+            return self._set_in_combat(combat_detect.source)
+        if combat_phase is CombatDetectPhase.UNCERTAIN:
+            return self.scene.set_in_combat()
 
-            # now = time.time()
-            is_auto = self.config.get("自动目标") or not isinstance(self, AutoCombatTask)
-            if target and not has_target():
-                self.log_debug("try target")
-                self.middle_click(after_sleep=0.1)
+        return self._recover_or_end_combat()
 
-            in_combat = (is_boss() or has_lv() or has_health_bar()) and (is_auto or has_target())
-            if in_combat:
-                # self.log_info(f"enter combat cost1 {time.time() - now}")
-                if is_boss():
-                    self.middle_click()
-                elif not has_target() and not self.target_enemy(wait=True, lv=False):
-                    return False
-                # self.log_info(f"enter combat cost2 {time.time() - now}")
-                self._in_combat = self.load_chars()
-                return self._in_combat
+    def _recover_or_end_combat(self):
+        if self.target_enemy(wait=True, turn=self._turn_on_retarget):
+            self._reset_combat_detect_state()
+            self.find_lv_future = None
+            self._lv_async = None
+            self.openvino_clear_cache()
+            logger.debug("retarget enemy succeeded")
+            return self._set_in_combat("retarget_enemy")
+        if self.should_check_monthly_card() and self.handle_monthly_card():
+            return self._set_in_combat("monthly_card")
+        logger.error("target_enemy failed, try recheck break out of combat")
+        return self.reset_to_false(reason="target enemy failed")
+
+    def _try_enter_combat(self, target):
+        from src.tasks.trigger.AutoCombatTask import AutoCombatTask
+
+        @cache
+        def has_target():
+            return self.find_target()
+
+        @cache
+        def has_lv():
+            return bool(self.find_lv())
+
+        @cache
+        def has_health_bar():
+            return self.has_health_bar()
+
+        @cache
+        def is_boss():
+            return self.is_boss()
+
+        is_auto = self.config.get("自动目标") or not isinstance(self, AutoCombatTask)
+        if target and not has_target():
+            self.log_debug("try target")
+            self.middle_click(after_sleep=0.1)
+
+        has_combat_signal = is_boss() or has_lv() or has_health_bar()
+        has_target_signal = is_auto or has_target()
+        if not (has_combat_signal and has_target_signal):
+            return None
+
+        if is_boss():
+            self.middle_click()
+        elif not has_target() and not self.target_enemy(wait=True, lv=False):
+            return False
+        self._in_combat = self.load_chars()
+        return self._in_combat
 
     def combat_detect(self, frame=None, target=True, lv=True, force=False):
         if lv and self.find_lv(frame=frame):
@@ -465,45 +494,62 @@ class CombatCheck(BaseNTETask):
         if lv:
             lv_ret = self.find_lv_async(frame=frame, force=force)
             if lv_ret:
-                return True
+                return CombatDetectResult(
+                    True,
+                    "lv",
+                    lv_ret=lv_ret,
+                    exhaustive=exhaustive,
+                    force=force,
+                )
 
         is_lv_false = not lv or lv_ret is False
 
         if target and (exhaustive or is_lv_false):
             target_ret = self.find_target(frame=frame, force=force)
             if target_ret:
-                return True
+                return CombatDetectResult(
+                    True,
+                    "target",
+                    lv_ret=lv_ret,
+                    target_ret=bool(target_ret),
+                    exhaustive=exhaustive,
+                    force=force,
+                )
 
         target_pending = target and (exhaustive or is_lv_false) and target_ret is None
         if lv_ret is None or target_pending:
-            self._log_async_combat_detect_pending(
+            result = CombatDetectResult(
+                None,
+                "pending",
                 lv_ret=lv_ret,
                 target_ret=target_ret,
                 target_pending=target_pending,
                 exhaustive=exhaustive,
                 force=force,
             )
-            return None
+            self._log_async_combat_detect_pending(result)
+            return result
 
-        return False
+        return CombatDetectResult(
+            False,
+            "miss",
+            lv_ret=lv_ret,
+            target_ret=bool(target_ret),
+            target_pending=target_pending,
+            exhaustive=exhaustive,
+            force=force,
+        )
 
-    def _log_async_combat_detect_pending(
-        self,
-        lv_ret,
-        target_ret,
-        target_pending: bool,
-        exhaustive: bool,
-        force: bool,
-    ):
+    def _log_async_combat_detect_pending(self, result: CombatDetectResult):
         now = time.time()
         if now - self._last_combat_detect_pending_log < 1:
             return
         self._last_combat_detect_pending_log = now
         logger.warning(
             "CombatDetect pending None: "
-            f"lv_ret={lv_ret}, lv_future={self._lv_future_debug_state(now)}, "
-            f"target_pending={target_pending}, target_ret={target_ret}, "
-            f"exhaustive={exhaustive}, force={force}, "
+            f"lv_ret={result.lv_ret}, lv_future={self._lv_future_debug_state(now)}, "
+            f"target_pending={result.target_pending}, target_ret={result.target_ret}, "
+            f"exhaustive={result.exhaustive}, force={result.force}, "
             f"{self._openvino_debug_state()}"
         )
 
