@@ -58,6 +58,15 @@ class BaseCombatTask(CombatCheck):
     hot_key_verified = False  # 热键是否已验证
     freeze_durations = []  # 记录冻结/卡肉的持续时间
 
+    element_ring_reaction = (
+        "创生",
+        "覆纹",
+        "浊燃",
+        "黯星",
+        "浸染",
+        "延滞",
+    )
+
     element_ring = (
         Element.WHITE,
         Element.GREEN,
@@ -67,14 +76,6 @@ class BaseCombatTask(CombatCheck):
         Element.YELLOW,
     )
     element_ring_index = {element: index for index, element in enumerate(element_ring)}
-    target_elements = (
-        Element.BLUE,
-        Element.GREEN,
-        Element.RED,
-        Element.PURPLE,
-        Element.YELLOW,
-        Element.WHITE,
-    )
     _element_template_cache = {}
     _element_template_cache_lock = Lock()
     _element_template_preheat_started = False
@@ -159,7 +160,7 @@ class BaseCombatTask(CombatCheck):
                 return
 
         built_cache = {}
-        for element in cls.target_elements:
+        for element in cls.element_ring:
             template_data = cls._load_element_template(element)
             if template_data is not None:
                 built_cache[element] = template_data
@@ -240,6 +241,21 @@ class BaseCombatTask(CombatCheck):
             (self.element_ring[i], self.element_ring[(i + 1) % len(self.element_ring)]): 0
             for i in range(len(self.element_ring))
         }
+        self._update_element_ring_reaction_info()
+
+    def _update_element_ring_reaction_info(self):
+        if not self.debug:
+            return
+        reaction_info = []
+        for index, reaction_name in enumerate(self.element_ring_reaction):
+            pair = (
+                self.element_ring[index],
+                self.element_ring[(index + 1) % len(self.element_ring)],
+            )
+            count = self.element_ring_reaction_counts.get(pair, 0)
+            if count > 0:
+                reaction_info.append(f"{reaction_name}: {count}")
+        self.info_set("环合反应", reaction_info)
 
     def record_element_ring_reaction(self, char_a: "BaseChar", char_b: "BaseChar") -> bool:
         if char_a is None or char_b is None:
@@ -248,6 +264,8 @@ class BaseCombatTask(CombatCheck):
         if pair is None:
             return False
         self.element_ring_reaction_counts[pair] = self.element_ring_reaction_counts.get(pair, 0) + 1
+
+        self._update_element_ring_reaction_info()
         return True
 
     def find_element_ring_reaction_target(self, source_char: "BaseChar") -> "BaseChar | None":
@@ -1024,7 +1042,7 @@ class BaseCombatTask(CombatCheck):
             best_element = Element.DEFAULT
             max_score = -1.0
 
-            for element in self.target_elements:
+            for element in self.element_ring:
                 template_data = self._element_template_cache.get(element)
                 if template_data is None:
                     continue

@@ -23,6 +23,9 @@ class Globals(QObject):
         threading.Thread(
             target=self.init_sound_context, daemon=True, name="SoundContextInit"
         ).start()
+        threading.Thread(
+            target=lambda: self.openvino_model_async, daemon=True, name="OpenVINOInit"
+        ).start()
 
     def stop(self):
         self._sound_context_stop_event.set()
