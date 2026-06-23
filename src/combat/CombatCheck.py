@@ -73,7 +73,6 @@ class CombatCheck(BaseNTETask):
         super().__init__(*args, **kwargs)
         self._in_animation = False
         self._in_combat = False
-        self.last_out_of_combat_time = 0
         self.out_of_combat_reason = ""
         self.target_enemy_time_out = 3
         self.switch_char_time_out = 5
@@ -543,6 +542,9 @@ class CombatCheck(BaseNTETask):
     def _log_async_combat_detect_pending(self, result: CombatDetectResult):
         now = time.time()
         if now - self._last_combat_detect_pending_log < 1:
+            return
+        if self._last_combat_detect_pending_log < getattr(self, "combat_start", 0):
+            self._last_combat_detect_pending_log = now
             return
         self._last_combat_detect_pending_log = now
         logger.warning(
