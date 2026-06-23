@@ -20,11 +20,15 @@ class Zero(BaseChar):
                 can_execute=self.should_use_skill,
             ),
         )
-    
+
     def should_use_skill(self, context: CombatContext = None):
-        return not self.is_cycle_full() or (
-            context is not None
-            and context.strict_route_wants_action(self, slot=ActionSlot.SKILL)
+        return (
+            not self.has_element_reaction_teammate()
+            or not self.is_cycle_full()
+            or (
+                context is not None
+                and context.strict_route_wants_action(self, slot=ActionSlot.SKILL)
+            )
         )
 
     def click_skill(self, *args, **kwargs):

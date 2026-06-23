@@ -58,7 +58,7 @@ class BaseCombatTask(CombatCheck):
     hot_key_verified = False  # 热键是否已验证
     freeze_durations = []  # 记录冻结/卡肉的持续时间
 
-    element_ring_reaction = (
+    element_reactions = (
         "创生",
         "覆纹",
         "浊燃",
@@ -98,9 +98,9 @@ class BaseCombatTask(CombatCheck):
         self.use_ultimate = True
         self.vibrate_chars_index: list[int] = []
         self.chars_slot_mat = [None, None, None, None]
-        self.element_ring_reaction_counts = {}
+        self.element_reaction_counts = {}
         self.combat_planner = CombatPlanner(self)
-        self.clear_element_ring_reactions()
+        self.clear_element_reactions()
         self.preheat_element_template_cache_async()
         CustomCharManager().preheat_feature_cache_async()
 
@@ -236,39 +236,39 @@ class BaseCombatTask(CombatCheck):
             return element_b, element_a
         return None
 
-    def clear_element_ring_reactions(self):
-        self.element_ring_reaction_counts = {
+    def clear_element_reactions(self):
+        self.element_reaction_counts = {
             (self.element_ring[i], self.element_ring[(i + 1) % len(self.element_ring)]): 0
             for i in range(len(self.element_ring))
         }
-        self._update_element_ring_reaction_info()
+        self._update_element_reaction_info()
 
-    def _update_element_ring_reaction_info(self):
+    def _update_element_reaction_info(self):
         if not self.debug:
             return
         reaction_info = []
-        for index, reaction_name in enumerate(self.element_ring_reaction):
+        for index, reaction_name in enumerate(self.element_reactions):
             pair = (
                 self.element_ring[index],
                 self.element_ring[(index + 1) % len(self.element_ring)],
             )
-            count = self.element_ring_reaction_counts.get(pair, 0)
+            count = self.element_reaction_counts.get(pair, 0)
             if count > 0:
                 reaction_info.append(f"{reaction_name}: {count}")
         self.info_set("环合反应", reaction_info)
 
-    def record_element_ring_reaction(self, char_a: "BaseChar", char_b: "BaseChar") -> bool:
+    def record_element_reaction(self, char_a: "BaseChar", char_b: "BaseChar") -> bool:
         if char_a is None or char_b is None:
             return False
         pair = self._get_element_ring_pair(char_a.element, char_b.element)
         if pair is None:
             return False
-        self.element_ring_reaction_counts[pair] = self.element_ring_reaction_counts.get(pair, 0) + 1
+        self.element_reaction_counts[pair] = self.element_reaction_counts.get(pair, 0) + 1
 
-        self._update_element_ring_reaction_info()
+        self._update_element_reaction_info()
         return True
 
-    def find_element_ring_reaction_target(self, source_char: "BaseChar") -> "BaseChar | None":
+    def find_element_reaction_target(self, source_char: "BaseChar") -> "BaseChar | None":
         if source_char is None:
             return None
         source_element_index = self.element_ring_index.get(source_char.element)
@@ -300,8 +300,8 @@ class BaseCombatTask(CombatCheck):
 
         previous_pair = self._get_element_ring_pair(source_char.element, previous_target.element)
         next_pair = self._get_element_ring_pair(source_char.element, next_target.element)
-        previous_count = self.element_ring_reaction_counts.get(previous_pair, 0)
-        next_count = self.element_ring_reaction_counts.get(next_pair, 0)
+        previous_count = self.element_reaction_counts.get(previous_pair, 0)
+        next_count = self.element_reaction_counts.get(next_pair, 0)
         if previous_count <= next_count:
             return previous_target
         return next_target
@@ -619,7 +619,7 @@ class BaseCombatTask(CombatCheck):
                 self.sleep(0.01)
 
         if has_intro and current_char:
-            if self.record_element_ring_reaction(current_char, switch_to):
+            if self.record_element_reaction(current_char, switch_to):
                 self.combat_planner.record_entry_reaction(current_char, switch_to)
         self.combat_planner.record_switch(switch_to)
 
@@ -972,7 +972,7 @@ class BaseCombatTask(CombatCheck):
             count = 4
         self.log_info(f"load_chars count {count} current_index {current_index}")
 
-        self.clear_element_ring_reactions()
+        self.clear_element_reactions()
         fixed_team = CustomCharManager().get_fixed_team()
         fixed_slots = fixed_team.get("slots", []) if fixed_team.get("enabled", False) else []
         new_chars = []

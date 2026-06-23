@@ -90,6 +90,11 @@ class BaseChar:
         """
         return False
 
+    def has_element_reaction_teammate(self) -> bool:
+        """当前队伍中是否有可以和自己形成环合反应的角色。"""
+
+        return self.task.find_element_reaction_target(self) is not None
+
     @property
     def name(self):
         """获取角色类名作为其名称。

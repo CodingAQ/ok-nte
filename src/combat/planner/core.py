@@ -437,7 +437,7 @@ class CombatPlanner:
             self._log_switch_decision(current_char, entry_request_decision)
             return entry_request_decision
 
-        reaction_decision = self._element_ring_reaction_decision(current_char, has_intro)
+        reaction_decision = self._element_reaction_decision(current_char, has_intro)
         if reaction_decision is not None:
             self._log_switch_decision(current_char, reaction_decision)
             return reaction_decision
@@ -646,17 +646,17 @@ class CombatPlanner:
             return False
         return step.matches_char(current_char)
 
-    def _element_ring_reaction_decision(
+    def _element_reaction_decision(
         self, current_char: "BaseChar", has_intro: bool
     ) -> SwitchDecision | None:
         if not has_intro:
             return None
-        reaction_target = self.task.find_element_ring_reaction_target(current_char)
+        reaction_target = self.task.find_element_reaction_target(current_char)
         if not self._can_switch_to(reaction_target) or reaction_target == current_char:
             return None
         return SwitchDecision(
             reaction_target,
-            "element ring reaction",
+            "element reaction",
             999500,
             has_intro,
             None,
