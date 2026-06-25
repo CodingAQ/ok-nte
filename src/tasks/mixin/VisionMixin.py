@@ -1,3 +1,4 @@
+import math
 import time
 from typing import NamedTuple
 
@@ -148,7 +149,11 @@ class VisionMixin(BaseTask):
 
         def build_attempts():
             attempts = [SiftAttempt("normal", 1.0, ratio, min_match_count)]
-            if small_target_retry and small_target_scene_scale not in (0, 1.0):
+            if (
+                small_target_retry
+                and not math.isclose(small_target_scene_scale, 0.0)
+                and not math.isclose(small_target_scene_scale, 1.0)
+            ):
                 attempts.append(
                     SiftAttempt(
                         "small_target",
@@ -178,7 +183,7 @@ class VisionMixin(BaseTask):
 
         def _get_attempt_scene(attempt: SiftAttempt):
             scene_for_sift = scene
-            if attempt.scene_scale != 1.0:
+            if not math.isclose(attempt.scene_scale, 1.0):
                 scene_for_sift = cv2.resize(
                     scene,
                     None,
@@ -200,7 +205,7 @@ class VisionMixin(BaseTask):
 
         def _make_box_from_homography(homography, attempt: SiftAttempt):
             projected = cv2.perspectiveTransform(corners, homography).reshape(-1, 2)
-            if attempt.scene_scale != 1.0:
+            if not math.isclose(attempt.scene_scale, 1.0):
                 projected = projected / attempt.scene_scale
             if not np.isfinite(projected).all():
                 return None, f"{attempt.name}:invalid_projection"
@@ -534,7 +539,7 @@ class VisionMixin(BaseTask):
             if score < score_threshold:
                 # 计算重心和角度
                 M = cv2.moments(cnt)
-                if M["m00"] != 0:
+                if not math.isclose(M["m00"], 0.0):
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
 
