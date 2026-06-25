@@ -109,8 +109,6 @@ class CombatCheck(BaseNTETask):
     @in_animation.setter
     def in_animation(self, value):
         self._in_animation = value
-        if value:
-            self._last_ultimate = time.time()
 
     def on_combat_check(self):
         return True

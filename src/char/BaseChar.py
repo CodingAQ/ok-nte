@@ -58,7 +58,7 @@ class BaseChar:
         self.builtin_key = None
         self.index = index
         self.last_switch_time = -1
-        self.last_ultimate = -1
+        self.last_ultimate_time = -1
         self.has_intro = False
         self.is_current_char = False
         self._ultimate_available = False
@@ -695,6 +695,7 @@ class BaseChar:
 
             duration = self._wait_ultimate_unfreeze(start)
         self._ultimate_available = False
+        self.last_ultimate_time = time.time()
         if clicked:
             self.logger.info(f"click_ultimate end {duration}")
         return clicked

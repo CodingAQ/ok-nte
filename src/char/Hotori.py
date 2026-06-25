@@ -119,7 +119,7 @@ class Hotori(BaseChar):
         )
     
     def _should_record(self):
-        cond1 = self.time_elapsed_accounting_for_freeze(self.last_ultimate) > 5
+        cond1 = self.time_elapsed_accounting_for_freeze(self.last_ultimate_time) > 5
         cond2 = self.records_status() is False
         return cond1 and cond2
 
