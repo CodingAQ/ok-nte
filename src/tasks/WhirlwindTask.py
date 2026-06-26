@@ -20,6 +20,7 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
     NAVIGATION_CLAMP_LOOP_INTERVAL = 0.05
     NAVIGATION_CLAMP_MICRO_INTERVAL = 0.25
     CONFIG_DIFF_OPTION = "难度选项"
+    CONFIG_RELOGIN = "每2小时重新登入"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -29,8 +30,10 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
         self.default_config.update(
             {
                 self.CONFIG_DIFF_OPTION: 1,
+                self.CONFIG_RELOGIN: False,
             }
         )
+        self.relogin_time = 0
 
     def run(self):
         super().run()
@@ -44,12 +47,15 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
             SoundCombatContext().clear_task_if(self)
 
     def do_run(self):
+        self.set_relogin_time()
+        self.sleep(1)
         self.sleep_check_skip.all = True
         self._apply_sound_config(dodge_action=self._dodge_with_skill)
         cond1 = not self.is_boss()
         cond2 = not self.find_interac()
         try:
             while True:
+                self.check_relogin()
                 if cond1:
                     if cond2:
                         self.navigate()
@@ -66,6 +72,18 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
         super().sleep_check()
         if self.should_check_monthly_card():
             self.handle_monthly_card()
+
+    def check_relogin(self):
+        if not self.config.get(self.CONFIG_RELOGIN):
+            return
+        if time.time() > self.relogin_time:
+            self.log_info("重新登入游戏")
+            self.back_to_login()
+            self.ensure_main()
+            self.set_relogin_time()
+
+    def set_relogin_time(self):
+        self.relogin_time = time.time() + 2 * 60 * 60
 
     def _dodge_with_skill(self):
         self.send_key(self.get_skill_key())

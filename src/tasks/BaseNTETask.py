@@ -596,6 +596,21 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, BaseTask):
                 self.operate_click(0.499, 0.865, after_sleep=3)
                 return False
 
+    def back_to_login(self):
+        self.ensure_main(in_world=False)
+        box = self.box_of_screen(0.6352, 0.6125, 0.7168, 0.7083, hcenter=True)
+
+        def action():
+            self.openESCpanel()
+            self.operate_click(0.9305, 0.8729)
+            self.sleep(0.5)
+            return self.find_confirm(box=box)
+
+        if self.retry_on_action(action, self.ensure_main):
+            if self.wait_click_confirm(range=box):
+                self.scene.set_logged_in(False)
+                return True
+
     def find_treasure(self):
         # now = time.time()
         result = self.find_one(
