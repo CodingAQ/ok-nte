@@ -574,7 +574,7 @@ class AutoHeistTask(NTEOneTimeTask, BaseCombatTask):
     # 离开粉爪副本
     def exit_heist(self):
         self.wait_until(
-            lambda: self.is_in_team_outside_heist() or self.has_extract_panel(),
+            self.has_extract_panel,
             pre_action=lambda: self.send_key("f", interval=1),
         )
         if self.is_in_team_outside_heist():
@@ -583,12 +583,15 @@ class AutoHeistTask(NTEOneTimeTask, BaseCombatTask):
 
         self.sleep(1)
         rewards = self.get_heist_rewards()
-        self.wait_until(
-            lambda: not self.has_extract_panel(),
-            pre_action=lambda: self.operate_click(0.604, 0.701, interval=1),
-        )
-        self.sleep(1)
-        self.wait_click_confirm(range=(0.5359, 0.8139, 0.5852, 0.9062))
+        if not self.wait_click_confirm(
+            action=lambda: self.operate_click(0.604, 0.701, interval=1),
+            range=(0.5359, 0.8139, 0.5852, 0.9062),
+            time_out=20,
+            raise_if_not_found=False
+        ):
+            self.log_round_info("点击撤离超时")
+            self.abort_heist()
+            return False
         self._add_rewards_to_summary(*rewards)
         self.sleep(1)
         self.wait_in_team(time_out=600)
