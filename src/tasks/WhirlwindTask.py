@@ -108,8 +108,13 @@ class WhirlwindTask(NTEOneTimeTask, BaseCombatTask):
         )
 
     def scroll_and_interac(self):
-        if self.is_in_team() and self.send_key("f", interval=0.25):
-            self.scroll_relative(0.5, 0.5, -1)
+        if self.is_in_team():
+            if self.send_key("f", interval=0.25):
+                self.scroll_relative(0.5, 0.5, -1)
+        else:
+            self.run_with_interval(
+                lambda: self.log_info("not in_team skip scroll_and_interac"), interval=1
+            )
 
     def find_dialog_history(self):
         return self.find_one(
