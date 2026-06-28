@@ -125,7 +125,7 @@ jobs:
       - name: Upload unsigned EXE artifact
         if: env.BUILD_EXE == 'true' && steps.release-version.outputs.is_release == 'true' && env.SIGN_BUILD == 'true' && env.USE_RELEASE == ''
         id: upload-unsigned-artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: to-sign
           path: ${{ steps.build-exe-only.outputs.exe-path }}
@@ -154,7 +154,7 @@ jobs:
       - name: Upload unsigned setup EXE artifact
         if: env.BUILD_EXE == 'true' && steps.release-version.outputs.is_release == 'true' && env.SIGN_BUILD == 'true' && env.SIGN_SETUP == 'true'
         id: upload-unsigned-setup-artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: setup-to-sign
           path: pyappify_dist/*setup.exe
