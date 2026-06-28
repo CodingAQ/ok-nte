@@ -22,3 +22,6 @@ class Lacrimosa(BaseChar):
             self.click_skill_action(),
             *claims,
         )
+    
+    def on_combat_end(self, chars):
+        self.switch_other_char()

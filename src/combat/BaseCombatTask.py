@@ -1105,7 +1105,7 @@ class BaseCombatTask(CombatCheck):
             self.send_key_down(direction)
             if run:
                 self.sleep(0.1)
-                self.send_key_down("lshift")
+                self.send_key("lshift")
             ret = bool(
                 self.wait_until(
                     self.in_combat,
@@ -1115,9 +1115,6 @@ class BaseCombatTask(CombatCheck):
             )
             self.sleep(delay)
         finally:
-            if run:
-                self.send_key_up("lshift")
-                self.sleep(0.1)
             self.send_key_up(direction)
         return ret
 
