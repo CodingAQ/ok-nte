@@ -295,14 +295,19 @@ class HeistTask(BaseNTETask, TriggerTask):
         super().disable()
 
     def start_listener(self):
-        if self.listener is None or not self.listener.is_alive():
+        if self._check_listener_error():
+            self.stop_listener()
+        if self.listener is None or not self.listener.is_alive() or not self.listener.running:
             self.listener = keyboard.Listener(
                 win32_event_filter=self._win32_filter,
             )
             self.physical_keys_pressed = set()
             self.suppressed_keys = set()
-        if not self.listener.running:
             self.listener.start()
+            self.listener.wait()
+            if self._check_listener_error():
+                self.stop_listener()
+                return
 
     def stop_listener(self):
         if self.listener is not None:
@@ -346,3 +351,13 @@ class HeistTask(BaseNTETask, TriggerTask):
         if self._quick_running:
             keys.update(self.SHIFT_KEYS)
         return keys
+
+    def _check_listener_error(self):
+        if self.listener is None:
+            return False
+        try:
+            self.listener.join(0)
+            return False
+        except Exception as e:
+            logger.error("heist keyboard listener stopped with exception", e)
+            return True
