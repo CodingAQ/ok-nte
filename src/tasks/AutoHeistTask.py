@@ -75,9 +75,9 @@ INST = "<br>".join(
             indent=2,
         ),
         _inst_line("避战角色: 翳", indent=2),
-        _inst_line("浔避战：", indent=1),
-        _inst_line("战斗角色: 随意 (战斗角色随意，可塞安魂曲) / 主角 / 哈尼娅", indent=2),
-        _inst_line("避战角色: 浔", indent=2),
+        # _inst_line("浔避战：", indent=1),
+        # _inst_line("战斗角色: 随意 (战斗角色随意，可塞安魂曲) / 主角 / 哈尼娅", indent=2),
+        # _inst_line("避战角色: 浔", indent=2),
     ]
 )
 
@@ -113,9 +113,9 @@ EN_INST = "<br>".join(
             indent=2,
         ),
         _inst_line("Stealth Character: Skia", indent=2),
-        _inst_line("Stealth (Hotori):", indent=1),
-        _inst_line("Combat Team: Flexible (Any, can include Lacrimosa) / Zero / Haniel", indent=2),
-        _inst_line("Stealth Character: Hotori", indent=2),
+        # _inst_line("Stealth (Hotori):", indent=1),
+        # _inst_line("Combat Team: Flexible (Any, can include Lacrimosa) / Zero / Haniel", indent=2),
+        # _inst_line("Stealth Character: Hotori", indent=2),
     ]
 )
 # ruff: enable[E501]
