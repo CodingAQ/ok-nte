@@ -405,9 +405,14 @@ class CombatCheck(BaseNTETask):
         return False
 
     def find_target(self, sync=False, frame=None, force=False) -> Box | None | bool:
+        if frame is None:
+            frame = self.frame
+        frame = iu.restore_world_brightness(frame)
+        box = self.box_of_screen(0.0840, 0.1326, 0.9030, 0.8694)
         result = self.openvino_detect(
             frame=frame,
             sync=sync,
+            box=box,
             threshold=0.65,
             force=force,
             mask_regions=self._TARGET_MASK_REGIONS,

@@ -77,7 +77,9 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, BaseTask):
         if og.my_app is None:
             return []
         if box is None:
-            box = self.box_of_screen(0.0840, 0.1326, 0.9030, 0.8694, name="openvino_box")
+            box = self.box_of_screen(0, 0, 1, 1, name="openvino")
+        else:
+            box.name = "openvino"
         self.draw_boxes(boxes=box, color="blue")
         if frame is None:
             frame = self.frame
