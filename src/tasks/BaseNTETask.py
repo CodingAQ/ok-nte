@@ -225,8 +225,8 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
             box = self._shift_char_ui_box(box)
         return box
 
-    def is_char_at_index(self, index, threshold=0.5, frame=None):
-        detection = self._get_current_char_detection(frame=frame)
+    def is_char_at_index(self, index, threshold=0.5, frame=None, char_count=None):
+        detection = self._get_current_char_detection(frame=frame, char_count=char_count)
         score = detection.scores[index]
         new = f"idx {index} conf {score:.3f} {detection.reason}"
         if detection.accepted and detection.index == index and score < threshold:
@@ -262,16 +262,20 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
         arr = self._update_char_ui_offset()
 
         # self.log_debug(f"in_team {arr}")
-        current = self.get_current_char_index()
         exist_count = 0
         for i in range(len(arr)):
             if arr[i] is not None:
                 exist_count += 1
-            elif current == -1:
-                current = i
 
-        if current != -1 and arr[current] is None:
-            exist_count += 1
+        if exist_count == 0:
+            self.log_warning("in_team exist_count is 0")
+            return False, -1, 0
+
+        current = self.get_current_char_index(char_count=exist_count)
+
+        if current == -1:
+            self.log_warning("in_team not found current char")
+            return False, -1, 0
 
         self.scene.set_logged_in()
         return True, current, exist_count

@@ -662,7 +662,7 @@ class BaseCombatTask(CombatCheck):
             return None, last_index_check
 
         last_index_check = current_time
-        if self.is_char_at_index(switch_to.index, frame=frame):
+        if self.is_char_at_index(switch_to.index, frame=frame, char_count=self.team_size):
             return "char index fallback", last_index_check
         return None, last_index_check
 
