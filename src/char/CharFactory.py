@@ -12,6 +12,7 @@ from src.char.Lacrimosa import Lacrimosa
 from src.char.Mint import Mint
 from src.char.Nanally import Nanally
 from src.char.Sakiri import Sakiri
+from src.char.Shinku import Shinku
 from src.char.Zero import Zero
 
 if TYPE_CHECKING:
@@ -32,6 +33,7 @@ char_dict: dict[str, dict[str, Any]] = {
     "char_chiz": {"cls": Chiz, "cn_name": "小吱", "element": Element.WHITE},
     "char_lacrimosa": {"cls": Lacrimosa, "cn_name": "安魂曲", "element": Element.PURPLE},
     "char_fadia": {"cls": Fadia, "cn_name": "法帝娅", "element": Element.BLUE},
+    "char_shinku": {"cls": Shinku, "cn_name": "真红", "element": Element.WHITE},
 }
 
 char_names = char_dict.keys()
