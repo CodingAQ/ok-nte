@@ -771,3 +771,15 @@ msgstr "Fazer login novamente a cada 2 horas"
 
 msgid "除了选择内建存在的<b style=\"color: #0078d7;\">{combo}</b>外，您也可以自己输入名称来建立自己的<b style=\"color: #0078d7;\">{combo}</b>。"
 msgstr "Além de selecionar um <b style=\"color: #0078d7;\">{combo}</b> integrado, você também pode inserir um nome para criar seu próprio <b style=\"color: #0078d7;\">{combo}</b>."
+
+msgid "九百九十九夜"
+msgstr "999 Nights"
+
+msgid "巧克力火山-底层最左边的篝火"
+msgstr "Vulcão de Chocolate - Fogueira da extrema esquerda do andar inferior"
+
+msgid "挂机刷经验"
+msgstr "Farm de EXP AFK"
+
+msgid "位置"
+msgstr "Localização"

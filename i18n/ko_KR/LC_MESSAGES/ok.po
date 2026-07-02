@@ -1024,3 +1024,15 @@ msgstr "2시간마다 재로그인"
 
 msgid "除了选择内建存在的<b style=\"color: #0078d7;\">{combo}</b>外，您也可以自己输入名称来建立自己的<b style=\"color: #0078d7;\">{combo}</b>。"
 msgstr "내장된 <b style=\"color: #0078d7;\">{combo}</b>를 선택하는 것 외에도, 이름을 입력하여 자신만의 <b style=\"color: #0078d7;\">{combo}</b>를 만들 수도 있습니다."
+
+msgid "九百九十九夜"
+msgstr "구백구십구야"
+
+msgid "巧克力火山-底层最左边的篝火"
+msgstr "초콜릿 화산 - 최하층 가장 왼쪽 모닥불"
+
+msgid "挂机刷经验"
+msgstr "자동 경험치 파밍"
+
+msgid "位置"
+msgstr "위치"

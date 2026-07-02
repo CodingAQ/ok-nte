@@ -1007,3 +1007,15 @@ msgstr ""
 
 msgid "除了选择内建存在的<b style=\"color: #0078d7;\">{combo}</b>外，您也可以自己输入名称来建立自己的<b style=\"color: #0078d7;\">{combo}</b>。"
 msgstr ""
+
+msgid "九百九十九夜"
+msgstr ""
+
+msgid "巧克力火山-底层最左边的篝火"
+msgstr ""
+
+msgid "挂机刷经验"
+msgstr ""
+
+msgid "位置"
+msgstr ""

@@ -1024,3 +1024,15 @@ msgstr "每2小時重新登入"
 
 msgid "除了选择内建存在的<b style=\"color: #0078d7;\">{combo}</b>外，您也可以自己输入名称来建立自己的<b style=\"color: #0078d7;\">{combo}</b>。"
 msgstr "除了選擇內建存在的<b style=\"color: #0078d7;\">{combo}</b>外，您也可以自己輸入名稱來建立自己的<b style=\"color: #0078d7;\">{combo}</b>。"
+
+msgid "九百九十九夜"
+msgstr "九百九十九夜"
+
+msgid "巧克力火山-底层最左边的篝火"
+msgstr "巧克力火山-底層最左邊的篝火"
+
+msgid "挂机刷经验"
+msgstr "掛機刷經驗"
+
+msgid "位置"
+msgstr "位置"

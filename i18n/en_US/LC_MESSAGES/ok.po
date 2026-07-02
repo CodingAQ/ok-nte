@@ -1024,3 +1024,15 @@ msgstr "Re-login every 2 hours"
 
 msgid "除了选择内建存在的<b style=\"color: #0078d7;\">{combo}</b>外，您也可以自己输入名称来建立自己的<b style=\"color: #0078d7;\">{combo}</b>。"
 msgstr "In addition to selecting a built-in <b style=\"color: #0078d7;\">{combo}</b>, you can also enter a name to create your own <b style=\"color: #0078d7;\">{combo}</b>."
+
+msgid "九百九十九夜"
+msgstr "999 Nights"
+
+msgid "巧克力火山-底层最左边的篝火"
+msgstr "Chocolate Volcano - Bottom Floor Leftmost Bonfire"
+
+msgid "挂机刷经验"
+msgstr "AFK EXP Farming"
+
+msgid "位置"
+msgstr "Location"
