@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Iterable
 
 from ok import Logger
+
+from src.utils.log_gate import LogGate
 
 from .context import CombatContext
 from .requests import (
@@ -140,7 +141,7 @@ class CombatPlanner:
 
         self.task = task
         self.state = CombatState()
-        self._last_log_times = {}
+        self._log_gate = LogGate(logger)
 
     def reset(self, chars: Iterable["BaseChar"]) -> None:
         """重置 planner 管理的队伍角色和运行状态。
@@ -187,12 +188,7 @@ class CombatPlanner:
 
     def _log_info_throttled(self, key, message: str, interval: float | None = None):
         interval = self.LOG_THROTTLE_INTERVAL if interval is None else interval
-        now = time.time()
-        last = self._last_log_times.get(key, 0)
-        if now - last < interval:
-            return
-        self._last_log_times[key] = now
-        logger.info(message)
+        self._log_gate.info(message, interval=interval, key=key)
 
     def switch_in_guard(
         self,

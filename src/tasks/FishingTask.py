@@ -70,7 +70,6 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
             }
         )
         self._morph_kernel = np.ones((3, 3), dtype=np.uint8)
-        self._last_bar_log_time = 0.0
         self._last_direction = None
         self._bar_active_key = None
         self.add_exit_after_config()
@@ -442,7 +441,6 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
             self.apply_bar_control_hold(state)
 
     def apply_bar_control_hold(self, state: dict):
-        now = time.time()
         pointer_center, pointer_width, zone_center, zone_width = self._bar_metrics(state)
         error = pointer_center - zone_center
         abs_error = abs(error)
@@ -450,24 +448,25 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
 
         if abs_error <= deadzone:
             self._set_bar_key(None)
-            if now - self._last_bar_log_time > 1:
-                self.log_debug(f"指针已锁定中心: pointer={pointer_center}, target={zone_center}")
-                self._last_bar_log_time = now
+            self.log_debug_gated(
+                f"指针已锁定中心: pointer={pointer_center}, target={zone_center}",
+                interval=2,
+            )
             return
 
         key = "d" if error < 0 else "a"
         self._set_bar_key(key)
 
     def apply_bar_control_discrete(self, state: dict):
-        now = time.time()
         pointer_center, _, zone_center, zone_width = self._bar_metrics(state)
         dist_from_center = pointer_center - zone_center
         abs_dist = abs(dist_from_center)
 
         if abs_dist <= max(2, int(zone_width * 0.08)):
-            if now - self._last_bar_log_time > 0.5:
-                self.log_debug(f"指针已锁定中心: pointer={pointer_center}, target={zone_center}")
-                self._last_bar_log_time = now
+            self.log_debug_gated(
+                f"指针已锁定中心: pointer={pointer_center}, target={zone_center}",
+                interval=2,
+            )
             return
 
         key = "d" if dist_from_center < 0 else "a"
@@ -668,7 +667,6 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
 
     def reset_runtime_state(self):
         self._set_bar_key(None)
-        self._last_bar_log_time = 0.0
         self._last_direction = None
         self._bar_active_key = None
 

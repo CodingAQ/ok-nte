@@ -224,7 +224,6 @@ class LauncherTask(BaseNTETask):
     def _click_start_game(self, time_out=120):
         self.log_info(f"Looking for launcher Start Game button for up to {time_out}s")
         deadline = time.time() + time_out
-        last_log_time = 0
         last_update_click_time = 0
         ready_other_count = 0
         update_in_progress = False
@@ -320,10 +319,7 @@ class LauncherTask(BaseNTETask):
                 deadline = self._extend_deadline_for_update(deadline, loop_start)
                 continue
 
-            now = time.time()
-            if now - last_log_time >= 5:
-                self.log_info("Launcher Start Game button not found yet")
-                last_log_time = now
+            self.log_info_gated("Launcher Start Game button not found yet", interval=5)
             self.sleep(1)
         self.log_warning("Launcher did not minimize after Start Game attempts")
         return False
@@ -416,7 +412,6 @@ class LauncherTask(BaseNTETask):
             f"(settle_window={settle_window})"
         )
         start = time.time()
-        last_log_second = -1
         while time.time() - start < time_out:
             proc = self._find_process(exe_name)
             if proc:
@@ -426,12 +421,11 @@ class LauncherTask(BaseNTETask):
                     size = self._get_window_size(hwnd)
                     if not self._is_usable_window_size(size):
                         elapsed = int(time.time() - start)
-                        if elapsed != last_log_second and elapsed > 0 and elapsed % 10 == 0:
-                            self.log_info(
-                                f"Window for {exe_label} exists but is too small; "
-                                f"hwnd={hwnd}, size={size[0]}x{size[1]}, elapsed={elapsed}s"
-                            )
-                            last_log_second = elapsed
+                        self.log_info_gated(
+                            f"Window for {exe_label} exists but is too small; "
+                            f"hwnd={hwnd}, size={size[0]}x{size[1]}, elapsed={elapsed}s",
+                            interval=10,
+                        )
                         self.sleep(1)
                         continue
 
@@ -449,14 +443,16 @@ class LauncherTask(BaseNTETask):
                     return True
 
             elapsed = int(time.time() - start)
-            if elapsed != last_log_second and elapsed > 0 and elapsed % 10 == 0:
-                if proc:
-                    self.log_info(
-                        f"Process {exe_label} exists, waiting for window; elapsed={elapsed}s"
-                    )
-                else:
-                    self.log_info(f"Still waiting for {exe_label}; elapsed={elapsed}s")
-                last_log_second = elapsed
+            if proc:
+                self.log_info_gated(
+                    f"Process {exe_label} exists, waiting for window; elapsed={elapsed}s",
+                    interval=10,
+                )
+            else:
+                self.log_info_gated(
+                    f"Still waiting for {exe_label}; elapsed={elapsed}s",
+                    interval=10,
+                )
             self.sleep(1)
         self.log_warning(f"Process/window {exe_label} was not found within {time_out}s")
         return False
@@ -521,7 +517,6 @@ class LauncherTask(BaseNTETask):
         self.log_info(f"Waiting for {exe_name} window size to settle for {settle_time}s")
         stable_start = time.time()
         last_size = self._get_window_size(hwnd)
-        last_log_time = 0
 
         while time.time() - wait_start < time_out:
             if not win32gui.IsWindow(hwnd):
@@ -543,14 +538,12 @@ class LauncherTask(BaseNTETask):
                 self.log_info(f"Window size for {exe_name} settled at {size[0]}x{size[1]}")
                 return True
 
-            now = time.time()
-            if now - last_log_time >= 2:
-                stable_for = max(0, now - stable_start)
-                self.log_info(
-                    f"Waiting for {exe_name} window to settle; "
-                    f"size={size[0]}x{size[1]}, stable_for={stable_for:.1f}s/{settle_time}s"
-                )
-                last_log_time = now
+            stable_for = max(0, time.time() - stable_start)
+            self.log_info_gated(
+                f"Waiting for {exe_name} window to settle; "
+                f"size={size[0]}x{size[1]}, stable_for={stable_for:.1f}s/{settle_time}s",
+                interval=2,
+            )
             self.sleep(0.5)
 
         self.log_warning(f"Timed out while waiting for {exe_name} window size to settle")

@@ -88,9 +88,6 @@ class CombatCheck(BaseNTETask):
         self._bg_ocr_lock = threading.Lock()
         self._find_lv_latency = 0
         self._find_lv_async_started_at = 0
-        self._last_combat_detect_pending_log = 0
-        self._last_combat_detect_hit_log = 0
-        self._last_combat_detect_source = ""
         self._turn_on_retarget = False
         self._boss_fight = False
 
@@ -297,12 +294,7 @@ class CombatCheck(BaseNTETask):
         return self.async_combat_detect()
 
     def _log_combat_detect_hit(self, source: str):
-        now = time.time()
-        if source == self._last_combat_detect_source and now - self._last_combat_detect_hit_log < 1:
-            return
-        self._last_combat_detect_source = source
-        self._last_combat_detect_hit_log = now
-        logger.debug(f"CombatDetect hit: source={source}")
+        self.log_debug_gated(f"CombatDetect hit: source={source}", interval=1, changed=True)
 
     def _set_in_combat(self, source: str):
         self._log_combat_detect_hit(source)
@@ -549,18 +541,13 @@ class CombatCheck(BaseNTETask):
 
     def _log_async_combat_detect_pending(self, result: CombatDetectResult):
         now = time.time()
-        if now - self._last_combat_detect_pending_log < 1:
-            return
-        if self._last_combat_detect_pending_log < getattr(self, "combat_start", 0):
-            self._last_combat_detect_pending_log = now
-            return
-        self._last_combat_detect_pending_log = now
-        logger.warning(
+        self.log_warning_gated(
             "CombatDetect pending None: "
             f"lv_ret={result.lv_ret}, lv_future={self._lv_future_debug_state(now)}, "
             f"target_pending={result.target_pending}, target_ret={result.target_ret}, "
             f"exhaustive={result.exhaustive}, force={result.force}, "
-            f"{self._openvino_debug_state()}"
+            f"{self._openvino_debug_state()}",
+            interval=1,
         )
 
     def _lv_future_debug_state(self, now: float):

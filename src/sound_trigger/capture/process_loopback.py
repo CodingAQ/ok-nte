@@ -25,6 +25,7 @@ from src.sound_trigger.capture.process_resolver import (
     process_is_alive,
     resolve_target_pid,
 )
+from src.utils.log_gate import LogGate
 
 logger = Logger.get_logger(__name__)
 
@@ -463,6 +464,7 @@ class ProcessLoopbackSource(AudioCaptureSource):
         self._display_name = ",".join(sorted(name_set(process_name))) or "?"
         self.include_process_tree = include_process_tree
         self._stream_started_once = False
+        self._log_gate = LogGate(logger)
 
     @property
     def name(self) -> str:
@@ -479,20 +481,21 @@ class ProcessLoopbackSource(AudioCaptureSource):
 
         self._mark_ready()
         failure_streak = 0
-        last_missing_log = 0.0
+        missing_log_key = "missing_audio_process"
         try:
             while not self._stop.is_set():
                 pid = resolve_target_pid(self.process_name)
                 if pid is None:
-                    now = time.time()
-                    if now - last_missing_log >= 30.0:
-                        logger.info(f"Waiting for audio process {self.process_name}...")
-                        last_missing_log = now
+                    self._log_gate.info(
+                        f"Waiting for audio process {self.process_name}...",
+                        interval=30.0,
+                        key=missing_log_key,
+                    )
                     if self._stop.wait(PROCESS_WAIT_INTERVAL):
                         return
                     continue
 
-                last_missing_log = 0.0
+                self._log_gate.reset(missing_log_key)
                 logger.info(f"Process loopback capture source: {self.process_name} pid={pid}")
                 try:
                     self._run_loopback_stream(pid, push)

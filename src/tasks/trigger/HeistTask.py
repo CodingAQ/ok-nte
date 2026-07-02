@@ -78,7 +78,6 @@ class HeistTask(BaseNTETask, TriggerTask):
         self.listener = None
         self.physical_keys_pressed = set()
         self.suppressed_keys = set()
-        self._diagnostic_log_times = {}
 
     def run(self):
         self.start_listener()
@@ -457,9 +456,9 @@ class HeistTask(BaseNTETask, TriggerTask):
         )
 
     def _log_diagnostic(self, key, message, interval, level="info"):
-        now = time.time()
-        last_time = self._diagnostic_log_times.get(key, 0)
-        if now - last_time < interval:
-            return
-        self._diagnostic_log_times[key] = now
-        getattr(logger, level)(message)
+        self.log_gated(
+            level,
+            message,
+            interval=interval,
+            key=("heist_diagnostic", key),
+        )
