@@ -15,7 +15,7 @@ jobs:
       PYTHONIOENCODING: 'UTF-8'
       SIGN_BUILD: 'true'
       SIGN_SETUP: 'false'
-      BUILD_EXE: 'false'
+      BUILD_EXE: 'true'
       USE_RELEASE: 'https://api.github.com/repos/BnanZ0/ok-nte/releases/tags/v1.1.32'
 
     strategy:
