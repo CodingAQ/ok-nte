@@ -923,8 +923,8 @@ msgstr ""
 msgid "使用任何路径前请先阅读使用说明"
 msgstr "Lea las instrucciones antes de usar cualquier ruta"
 
-msgid "循环次数, 设置为0则一直运行"
-msgstr "Número de bucles (0 para ejecutar indefinidamente)"
+msgid "设置为0则一直运行"
+msgstr "Establecer en 0 para ejecutar indefinidamente"
 
 msgid "战斗角色"
 msgstr "Personajes de combate (Combat Team)"

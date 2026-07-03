@@ -789,3 +789,6 @@ msgstr "Castelo do Dragão Vermelho - Fogueira externa da Torre do Dragão"
 
 msgid "使用终结技"
 msgstr "Usar Ultimate"
+
+msgid "设置为0则一直运行"
+msgstr "Definir como 0 para executar indefinidamente"

@@ -923,8 +923,8 @@ msgstr ""
 msgid "使用任何路径前请先阅读使用说明"
 msgstr "경로를 사용하기 전에 사용 설명서를 읽어주세요"
 
-msgid "循环次数, 设置为0则一直运行"
-msgstr "루프 횟수 (0으로 설정 시 무한 실행)"
+msgid "设置为0则一直运行"
+msgstr "0으로 설정 시 무한 실행"
 
 msgid "战斗角色"
 msgstr "전투 캐릭터 (Combat Team)"

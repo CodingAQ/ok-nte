@@ -906,7 +906,7 @@ msgstr ""
 msgid "使用任何路径前请先阅读使用说明"
 msgstr ""
 
-msgid "循环次数, 设置为0则一直运行"
+msgid "设置为0则一直运行"
 msgstr ""
 
 msgid "战斗角色"
