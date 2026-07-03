@@ -9,6 +9,9 @@ logger = Logger.get_logger(__name__)
 
 
 class AutoCombatTask(BaseCombatTask, TriggerTask):
+    CONF_USE_ULT = "使用终结技"
+    CONF_AUTO_TARGET = "自动目标"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.default_config = {"_enabled": True}
@@ -19,11 +22,12 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
         self.last_is_click = False
         self.default_config.update(
             {
-                "自动目标": True,
+                self.CONF_AUTO_TARGET: True,
+                self.CONF_USE_ULT: True
             }
         )
         self.config_description = {
-            "自动目标": "关闭时仅在中键选中敌人且画面识别到 'Lv' 文字时开启战斗",
+            self.CONF_AUTO_TARGET: "关闭时仅在中键选中敌人且画面识别到 'Lv' 文字时开启战斗",
         }
         self.op_index = 0
         self.origin_func = {}
@@ -33,11 +37,12 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
         if not self.scene.is_in_team(self.is_in_team):
             return
 
-        combat_start = time.time()
         while self.in_combat():
             try:
                 if not ret:
                     ret = True
+                    combat_start = time.time()
+                    self.use_ultimate = self.config.get(self.CONF_USE_ULT, True)
                     self.switch_to_combat_start_char()
                 self.get_current_char(raise_exception=True).perform()
             except CharDeadException:

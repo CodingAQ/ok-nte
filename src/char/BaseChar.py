@@ -916,6 +916,8 @@ class BaseChar:
         return self.available("skill", check_color=check_color)
 
     def available(self, box, check_color=True, check_cd=True):
+        if box == "ultimate" and not self.task.use_ultimate:
+            return False
         if self.is_current_char:
             return self.task.available(box, check_color=check_color, check_cd=check_cd)
         else:
