@@ -1,6 +1,7 @@
 import atexit
 import json
 import os
+import re
 import subprocess
 import tempfile
 import threading
@@ -11,7 +12,6 @@ from typing import Any
 
 from ok import ConfigOption, og
 from ok.gui.Communicate import communicate
-from ok.util.file import get_relative_path
 from ok.util.logger import Logger
 
 from src import GAME_EXE
@@ -24,11 +24,11 @@ CONF_ENABLE = "Enable Background Audio Routing"
 CONF_SOUND_VOLUME_VIEW_PATH = "SoundVolumeView Path"
 CONF_BACKGROUND_DEVICE = "Background Output Device"
 CONF_OPEN_DOWNLOAD_PAGE = "Open SoundVolumeView Download Page"
-CONF_DEVICE_OPTIONS = "_SoundVolumeView Output Devices"
 DEFAULT_RENDER_DEVICE = "DefaultRenderDevice"
 DEFAULT_DEVICE_OPTIONS = [DEFAULT_RENDER_DEVICE]
 _COMMAND_TIMEOUT_SECONDS = 5
 _WINDOW_ROUTE_CHECK_INTERVAL_SECONDS = 2
+_IGNORED_SOUNDDEVICE_HOST_APIS = {"MME", "Windows WDM-KS"}
 _SOUND_ITEM_COLUMNS = (
     "Name,Command-Line Friendly ID,Item ID,Type,Direction,Device Name,Device,"
     "Default Device,Default Render Device,Output Device,Device State,Process ID,Window Title"
@@ -40,11 +40,8 @@ _APP_DEVICE_COLUMNS = (
     "Default Render Device",
     "Output Device",
 )
-_COMMAND_ID_KEYS = (
-    "Command-Line Friendly ID",
-    "Command-LineFriendlyID",
-    "CommandLineFriendlyID",
-)
+_COMMAND_ID_KEY = "Command-Line Friendly ID"
+_RESET_PATCH_ATTR = "_background_audio_routing_reset_patched"
 
 
 def create_background_audio_routing_config_option() -> ConfigOption:
@@ -57,7 +54,6 @@ def create_background_audio_routing_config_option() -> ConfigOption:
             CONF_SOUND_VOLUME_VIEW_PATH: "",
             CONF_BACKGROUND_DEVICE: device_options[0],
             CONF_OPEN_DOWNLOAD_PAGE: CONF_OPEN_DOWNLOAD_PAGE,
-            CONF_DEVICE_OPTIONS: device_options,
         },
         description=(
             "Optionally route the game to a selected Windows output device while it is in "
@@ -103,8 +99,53 @@ def open_sound_volume_view_download_page(*_args, **_kwargs) -> None:
         _alert_error("Failed to open SoundVolumeView download page")
 
 
-def discover_output_devices(exe_path: str) -> list[str]:
-    return parse_sound_volume_view_devices(_export_sound_items(exe_path))
+def discover_output_devices() -> list[str]:
+    import sounddevice as sd
+
+    devices = list(DEFAULT_DEVICE_OPTIONS)
+    seen = {DEFAULT_RENDER_DEVICE.casefold()}
+    try:
+        sound_devices = list(sd.query_devices())
+        ignored_hostapi_indexes = _ignored_hostapi_indexes(sd.query_hostapis())
+        _extend_output_devices(devices, seen, sound_devices, ignored_hostapi_indexes)
+
+        if len(devices) == 1:
+            _extend_output_devices(devices, seen, sound_devices)
+    except Exception as exc:
+        logger.error(f"failed to query output devices using sounddevice: {exc}")
+    return devices
+
+
+def _ignored_hostapi_indexes(hostapis: Any) -> set[int]:
+    return {
+        i for i, api in enumerate(hostapis) if api.get("name") in _IGNORED_SOUNDDEVICE_HOST_APIS
+    }
+
+
+def _extend_output_devices(
+    devices: list[str],
+    seen: set[str],
+    sound_devices: list[Any],
+    ignored_hostapi_indexes: set[int] | None = None,
+) -> None:
+    for device in sound_devices:
+        if not _is_output_sound_device(device, ignored_hostapi_indexes):
+            continue
+        _append_unique_device(devices, seen, device["name"])
+
+
+def _is_output_sound_device(device: Any, ignored_hostapi_indexes: set[int] | None) -> bool:
+    if device["max_output_channels"] <= 0:
+        return False
+    return ignored_hostapi_indexes is None or device["hostapi"] not in ignored_hostapi_indexes
+
+
+def _append_unique_device(devices: list[str], seen: set[str], name: str) -> None:
+    key = name.casefold()
+    if key in seen:
+        return
+    seen.add(key)
+    devices.append(name)
 
 
 def discover_app_output_device(exe_path: str, process_name: str = GAME_EXE) -> str:
@@ -115,72 +156,39 @@ def discover_app_output_device(exe_path: str, process_name: str = GAME_EXE) -> s
 
 
 def parse_app_output_device(data: Any, process_name: str = GAME_EXE) -> str:
-    device_aliases = _render_device_aliases(data)
+    device_aliases = _device_aliases(data)
     for record in _iter_records(data):
-        if not _is_application_record(record, process_name):
+        if not _is_app_record(record, process_name):
             continue
-        for key in _APP_DEVICE_COLUMNS:
-            candidate = _first_text(record, key)
-            if not candidate:
-                continue
-            if _is_valid_output_device_option(candidate):
-                return candidate
-            device_id = device_aliases.get(candidate.casefold())
-            if device_id:
-                return device_id
+        device_id = _app_output_device_id(record, device_aliases)
+        if device_id:
+            return device_id
     return DEFAULT_RENDER_DEVICE
 
 
-def _export_sound_items(exe_path: str):
-    if not exe_path:
-        raise RuntimeError("Please select SoundVolumeView.exe first")
-    if not _is_sound_volume_view_path(exe_path):
-        raise RuntimeError("Please select a valid SoundVolumeView.exe file")
-
-    fd, export_path = tempfile.mkstemp(prefix="nte_sound_devices_", suffix=".json")
-    os.close(fd)
-    try:
-        command = [
-            exe_path,
-            "/SaveFileEncoding",
-            "3",
-            "/sjson",
-            export_path,
-            "/Columns",
-            _SOUND_ITEM_COLUMNS,
-        ]
-        result = subprocess.run(  # NOSONAR
-            command,
-            capture_output=True,
-            text=True,
-            timeout=_COMMAND_TIMEOUT_SECONDS,
-            check=False,
-            shell=False,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"SoundVolumeView failed to export devices, exit code {result.returncode}"
-            )
-        return _read_json(export_path)
-    finally:
-        try:
-            os.remove(export_path)
-        except OSError:
-            pass
+def _is_app_record(record: dict[str, Any], process_name: str) -> bool:
+    item_type = _first_text(record, "Type").casefold()
+    if item_type and item_type != "application":
+        return False
+    app_names = (
+        _first_text(record, "Name"),
+        _first_text(record, _COMMAND_ID_KEY),
+        _first_text(record, "Item ID"),
+    )
+    return any(_is_process_name(value, process_name) for value in app_names)
 
 
-def parse_sound_volume_view_devices(data: Any) -> list[str]:
-    devices = list(DEFAULT_DEVICE_OPTIONS)
-    for record in _iter_records(data):
-        device_id = _first_text(
-            record,
-            *_COMMAND_ID_KEYS,
-            "Name",
-        )
-        if not device_id or not _is_render_device(record, device_id):
+def _app_output_device_id(record: dict[str, Any], device_aliases: dict[str, str]) -> str:
+    for key in _APP_DEVICE_COLUMNS:
+        candidate = _first_text(record, key)
+        if not candidate:
             continue
-        devices.append(device_id)
-    return _dedupe_devices(devices)
+        if _is_sound_volume_view_device_id(candidate):
+            return candidate
+        device_id = device_aliases.get(_device_match_key(candidate))
+        if device_id:
+            return device_id
+    return ""
 
 
 def audio_route_command(device: str, process_name: str = GAME_EXE) -> list[str]:
@@ -203,6 +211,7 @@ def route_background_audio_for_current_window() -> None:
 class _RouteRequest:
     device: str
     capture_original: bool
+    restore_original: bool = False
 
 
 class _BackgroundAudioRouter:
@@ -265,13 +274,24 @@ class _BackgroundAudioRouter:
             logger.warning("background audio routing skipped: target output device is empty")
             return
 
-        route = _RouteRequest(device=device, capture_original=not visible)
+        route = _RouteRequest(
+            device=device,
+            capture_original=not visible,
+            restore_original=visible,
+        )
         with self._lock:
-            if device == self._requested_device or route == self._pending_route:
+            worker_running = self._worker is not None and self._worker.is_alive()
+            restore_in_flight = (
+                route.restore_original
+                and (self._pending_route is not None or worker_running or self._restore_needed)
+            )
+            if route == self._pending_route or (
+                device == self._requested_device and not restore_in_flight
+            ):
                 return
             self._pending_route = route
             self._restore_exe_path = exe_path
-            if self._worker is not None and self._worker.is_alive():
+            if worker_running:
                 return
             self._worker = threading.Thread(
                 target=self._run_pending_routes,
@@ -312,7 +332,9 @@ class _BackgroundAudioRouter:
                     return
             if route.capture_original:
                 self._ensure_original_device(exe_path)
-            device = route.device
+            device = self._route_request_device(route)
+            if not device:
+                continue
             routed = self._apply_route(exe_path, device)
             if routed:
                 with self._lock:
@@ -337,13 +359,31 @@ class _BackgroundAudioRouter:
         if not visible:
             return config.get(CONF_BACKGROUND_DEVICE)
         with self._lock:
-            return self._original_device
+            if self._original_device is not None:
+                return self._original_device
+            worker_running = self._worker is not None and self._worker.is_alive()
+            if self._pending_route is not None or worker_running or self._restore_needed:
+                return DEFAULT_RENDER_DEVICE
+            return None
+
+    def _route_request_device(self, route: _RouteRequest) -> str:
+        if not route.restore_original:
+            return route.device
+        with self._lock:
+            if self._original_device is not None:
+                return self._original_device
+            if self._restore_needed or self._requested_device is not None:
+                return route.device
+        return ""
 
     def _apply_route(self, exe_path: str, device: str) -> bool:
-        command = [exe_path, *audio_route_command(device)]
+        route_device = _resolve_sound_volume_view_device(exe_path, device)
+        if not route_device:
+            return False
+        command = [exe_path, *audio_route_command(route_device)]
         logger.info(
             f"route game audio output: tool={Path(exe_path).name} "
-            f"device={device} process={GAME_EXE}"
+            f"device={route_device} process={GAME_EXE}"
         )
         try:
             result = subprocess.run(  # NOSONAR
@@ -358,9 +398,7 @@ class _BackgroundAudioRouter:
             logger.error("failed to route game audio with SoundVolumeView", exc)
             return False
         if result.returncode != 0:
-            logger.warning(
-                f"SoundVolumeView audio route failed with exit code {result.returncode}"
-            )
+            logger.warning(f"SoundVolumeView audio route failed with exit code {result.returncode}")
             return False
         return True
 
@@ -368,11 +406,7 @@ class _BackgroundAudioRouter:
         with self._lock:
             worker = self._worker
             self._pending_route = None
-        if (
-            worker is not None
-            and worker is not threading.current_thread()
-            and worker.is_alive()
-        ):
+        if worker is not None and worker is not threading.current_thread() and worker.is_alive():
             worker.join(timeout=_COMMAND_TIMEOUT_SECONDS + 0.5)
 
         with self._lock:
@@ -393,10 +427,29 @@ def _routing_config():
     if global_config is None:
         return None
     try:
-        return global_config.get_config(CONFIG_NAME)
+        config = global_config.get_config(CONFIG_NAME)
     except Exception as exc:
         logger.debug(f"background audio routing config unavailable: {exc}")
         return None
+    _patch_reset_to_restore_audio(config)
+    return config
+
+
+def _patch_reset_to_restore_audio(config) -> None:
+    if getattr(config, _RESET_PATCH_ATTR, False):
+        return
+    reset_to_default = getattr(config, "reset_to_default", None)
+    if reset_to_default is None:
+        return
+
+    def reset_to_default_with_audio_restore(*args, **kwargs):
+        was_enabled = bool(config.get(CONF_ENABLE, False))
+        reset_to_default(*args, **kwargs)
+        if was_enabled and not bool(config.get(CONF_ENABLE, False)):
+            restore_background_audio_router()
+
+    config.reset_to_default = reset_to_default_with_audio_restore
+    setattr(config, _RESET_PATCH_ATTR, True)
 
 
 def _ok_exit_event():
@@ -408,20 +461,15 @@ def _ok_exit_event():
 
 
 def _configured_sound_volume_view_path() -> str:
-    config = _routing_config() or _load_saved_config()
+    config = _routing_config()
+    if not config:
+        return ""
     value = config.get(CONF_SOUND_VOLUME_VIEW_PATH, "")
     return value if isinstance(value, str) else ""
 
 
 def _initial_device_options() -> list[str]:
-    saved_config = _load_saved_config()
-    exe_path = saved_config.get(CONF_SOUND_VOLUME_VIEW_PATH, "")
-    if _is_sound_volume_view_path(exe_path):
-        try:
-            return discover_output_devices(exe_path)
-        except Exception as exc:
-            logger.warning(f"failed to initialize SoundVolumeView output devices: {exc}")
-    return _cached_device_options(saved_config)
+    return discover_output_devices()
 
 
 def _background_audio_routing_validator(device_options: list[str]):
@@ -433,126 +481,12 @@ def _background_audio_routing_validator(device_options: list[str]):
                 restore_background_audio_router()
         if key == CONF_BACKGROUND_DEVICE and value not in device_options:
             return False, "Selected background output device is unavailable"
-        if key == CONF_DEVICE_OPTIONS:
-            return True, None
         if key == CONF_SOUND_VOLUME_VIEW_PATH:
             if value and not _is_sound_volume_view_path(value):
                 return False, "Please select SoundVolumeView.exe"
-            if value:
-                _refresh_device_options_from_path(value, device_options)
         return True, None
 
     return validator
-
-
-def _refresh_device_options_from_path(exe_path: str, device_options: list[str]) -> None:
-    try:
-        devices = discover_output_devices(exe_path)
-    except Exception as exc:
-        logger.error("failed to refresh SoundVolumeView output devices", exc)
-        _alert_error(str(exc))
-        return
-
-    device_options[:] = devices
-    _apply_device_options(devices)
-    _refresh_global_config_ui()
-
-
-def _apply_device_options(devices: list[str]) -> None:
-    config = _routing_config()
-    if config is not None:
-        config[CONF_DEVICE_OPTIONS] = devices
-        if config.get(CONF_BACKGROUND_DEVICE) not in devices:
-            config[CONF_BACKGROUND_DEVICE] = devices[0]
-
-    global_config = getattr(og, "global_config", None)
-    option = getattr(global_config, "config_options", {}).get(CONFIG_NAME)
-    if option and option.config_type:
-        option.config_type[CONF_BACKGROUND_DEVICE]["options"] = devices
-
-
-def _refresh_global_config_ui() -> None:
-    main_window = _get_main_window()
-    if main_window is None:
-        return
-
-    config = _routing_config()
-    setting_tab = getattr(main_window, "setting_tab", None)
-    for config_card in getattr(setting_tab, "config_groups", []) or []:
-        if getattr(config_card, "config", None) is config:
-            _refresh_device_dropdown_widget(config_card)
-            config_card.update_config()
-            return
-
-
-def _refresh_device_dropdown_widget(config_widget) -> None:
-    widget = getattr(config_widget, "config_widget_by_key", {}).get(CONF_BACKGROUND_DEVICE)
-    combo_box = getattr(widget, "combo_box", None)
-    if combo_box is None:
-        return
-
-    config = _routing_config()
-    if config is None:
-        return
-    devices = config.get(CONF_DEVICE_OPTIONS, [])
-    _replace_combo_options(widget, combo_box, devices, config.get(CONF_BACKGROUND_DEVICE))
-
-
-def _replace_combo_options(widget, combo_box, devices: list[str], current: str) -> None:
-    from PySide6.QtGui import QFontMetrics
-
-    combo_box.blockSignals(True)
-    try:
-        widget.tr_dict = {}
-        widget.tr_options = []
-        combo_box.clear()
-        for device in devices:
-            translated = og.app.tr(device)
-            widget.tr_options.append(translated)
-            widget.tr_dict[translated] = device
-        combo_box.addItems(widget.tr_options)
-        selected = devices.index(current) if current in devices else 0
-        combo_box.setCurrentIndex(selected)
-        metrics = QFontMetrics(combo_box.font())
-        max_width = max(
-            (metrics.horizontalAdvance(option) for option in widget.tr_options),
-            default=0,
-        )
-        combo_box.setFixedWidth(max_width + 50)
-    finally:
-        combo_box.blockSignals(False)
-
-
-def _get_main_window():
-    main_window = getattr(og, "main_window", None)
-    if main_window is not None:
-        return main_window
-
-    app = getattr(og, "app", None)
-    if app is None:
-        return None
-    return getattr(app, "main_window", None)
-
-
-def _load_saved_config() -> dict[str, Any]:
-    path = get_relative_path("configs", f"{CONFIG_NAME}.json")
-    try:
-        with open(path, "r", encoding="utf-8") as file:
-            config = json.load(file)
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return config if isinstance(config, dict) else {}
-
-
-def _cached_device_options(config: dict[str, Any] | None = None) -> list[str]:
-    if config is None:
-        config = _load_saved_config()
-    options = config.get(CONF_DEVICE_OPTIONS)
-    if not isinstance(options, list):
-        options = []
-    current = config.get(CONF_BACKGROUND_DEVICE)
-    candidates = _dedupe_devices([*DEFAULT_DEVICE_OPTIONS, *options, current])
-    return [device for device in candidates if _is_valid_output_device_option(device)]
 
 
 def _is_sound_volume_view_path(exe_path: str) -> bool:
@@ -560,6 +494,62 @@ def _is_sound_volume_view_path(exe_path: str) -> bool:
         return False
     path = Path(exe_path)
     return path.is_file() and path.name.lower() == "soundvolumeview.exe"  # NOSONAR
+
+
+def _export_sound_items(exe_path: str):
+    if not exe_path:
+        raise RuntimeError("Please select SoundVolumeView.exe first")
+    if not _is_sound_volume_view_path(exe_path):
+        raise RuntimeError("Please select a valid SoundVolumeView.exe file")
+
+    fd, export_path = tempfile.mkstemp(prefix="nte_sound_devices_", suffix=".json")
+    os.close(fd)
+    try:
+        command = [
+            exe_path,
+            "/SaveFileEncoding",
+            "3",
+            "/sjson",
+            export_path,
+            "/Columns",
+            _SOUND_ITEM_COLUMNS,
+        ]
+        result = subprocess.run(  # NOSONAR
+            command,
+            capture_output=True,
+            text=True,
+            timeout=_COMMAND_TIMEOUT_SECONDS,
+            check=False,
+            shell=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"SoundVolumeView failed to export devices, exit code {result.returncode}"
+            )
+        return _read_json(export_path)
+    finally:
+        try:
+            os.remove(export_path)
+        except OSError:
+            pass
+
+
+def _resolve_sound_volume_view_device(exe_path: str, device: str) -> str | None:
+    if device == DEFAULT_RENDER_DEVICE or _is_sound_volume_view_device_id(device):
+        return device
+    try:
+        device_id = _resolve_sound_volume_view_device_id(_export_sound_items(exe_path), device)
+    except Exception as exc:
+        logger.warning(f"failed to resolve output device for SoundVolumeView: {exc}")
+        return None
+    if not device_id:
+        logger.warning(f"failed to resolve output device for SoundVolumeView: {device}")
+        return None
+    return device_id
+
+
+def _resolve_sound_volume_view_device_id(data: Any, device: str) -> str:
+    return _device_aliases(data).get(_device_match_key(device), "")
 
 
 def _read_json(path: str):
@@ -576,98 +566,80 @@ def _iter_records(data: Any):
                 yield from (item for item in value if isinstance(item, dict))
 
 
-def _is_render_device(record: dict[str, Any], device_id: str) -> bool:
-    item_type = _first_text(record, "Type").casefold()
-    direction = _first_text(record, "Direction").casefold()
+def _is_render_endpoint(record: dict[str, Any], device_id: str) -> bool:
     record_text = " ".join(str(value) for value in record.values()).lower()
     device_id_lower = device_id.lower()
+    if not _is_sound_volume_view_device_id(device_id):
+        return False
     if "\\subunit\\" in device_id_lower or " subunit" in record_text:
         return False
-    if "\\capture" in device_id_lower or direction == "capture":
-        return False
-    if item_type and item_type != "device":
-        return False
-    if "application" in record_text or device_id_lower.endswith(".exe"):
-        return False
-    if "\\device\\" in device_id_lower and "\\render" in device_id_lower:
-        return True
-    return item_type == "device" and direction == "render"
+    return "\\capture" not in device_id_lower and "application" not in record_text
 
 
-def _render_device_aliases(data: Any) -> dict[str, str]:
-    aliases = {}
+def _device_aliases(data: Any) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    ambiguous = set()
     for record in _iter_records(data):
-        device_id = _first_text(
-            record,
-            *_COMMAND_ID_KEYS,
-            "Name",
-        )
-        if not device_id or not _is_render_device(record, device_id):
+        device_id = _first_text(record, _COMMAND_ID_KEY, "Name")
+        if not _is_render_endpoint(record, device_id):
             continue
-        for key in (
-            *_COMMAND_ID_KEYS,
-            "Device Name",
-            "Name",
-            "Item ID",
-        ):
-            alias = _first_text(record, key)
-            if alias:
-                aliases.setdefault(alias.casefold(), device_id)
+        for alias in _device_alias_candidates(record, device_id):
+            key = _device_match_key(alias)
+            if not key:
+                continue
+            if key in aliases and aliases[key] != device_id:
+                ambiguous.add(key)
+            else:
+                aliases[key] = device_id
+    for key in ambiguous:
+        aliases.pop(key, None)
     return aliases
 
 
-def _is_application_record(record: dict[str, Any], process_name: str) -> bool:
-    process_key = process_name.casefold()
-    item_type = _first_text(record, "Type").casefold()
-    if item_type and item_type != "application":
-        return False
+def _device_alias_candidates(record: dict[str, Any], device_id: str) -> list[str]:
+    name = _first_text(record, "Device Name", "Name")
+    controller = _first_text(record, "Device")
+    endpoint = ""
+    device_id_lower = device_id.lower()
+    if "\\device\\" in device_id_lower and device_id_lower.endswith("\\render"):
+        parts = device_id.split("\\")
+        if len(parts) >= 4 and parts[-3].casefold() == "device":
+            controller = controller or parts[-4]
+            endpoint = parts[-2]
+    aliases = [device_id, name, controller, endpoint]
+    if name and controller:
+        aliases.append(f"{name} ({controller})")
+    if endpoint and controller:
+        aliases.append(f"{endpoint} ({controller})")
+    return aliases
 
-    for key in (
-        "Name",
-        *_COMMAND_ID_KEYS,
-        "Item ID",
-    ):
-        value = _first_text(record, key).casefold()
-        if value == process_key or value.endswith(f"\\{process_key}"):
-            return True
-    return False
+
+def _is_process_name(value: str, process_name: str) -> bool:
+    value = value.casefold()
+    process_name = process_name.casefold()
+    return value == process_name or value.endswith(f"\\{process_name}")
 
 
-def _is_valid_output_device_option(device: str) -> bool:
-    if device == DEFAULT_RENDER_DEVICE:
-        return True
+def _is_sound_volume_view_device_id(device: str) -> bool:
     device_lower = device.lower()
-    if "\\subunit\\" in device_lower or "\\capture" in device_lower:
-        return False
-    if device_lower.endswith(".exe"):
-        return False
     return "\\device\\" in device_lower and "\\render" in device_lower
 
 
 def _first_text(record: dict[str, Any], *keys: str) -> str:
-    normalized = {
-        key.lower().replace(" ", "").replace("-", ""): value for key, value in record.items()
-    }
     for key in keys:
-        value = normalized.get(key.lower().replace(" ", "").replace("-", ""))
+        value = record.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     return ""
 
 
-def _dedupe_devices(devices: list[str]) -> list[str]:
-    result = []
-    seen = set()
-    for device in devices:
-        if not isinstance(device, str) or not device.strip():
-            continue
-        device = device.strip()
-        key = device.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        result.append(device)
-    return result or list(DEFAULT_DEVICE_OPTIONS)
+def _device_match_key(device: str) -> str:
+    if not isinstance(device, str):
+        return ""
+    device = device.casefold()
+    device = device.replace("®", "").replace("™", "").replace("©", "")
+    device = re.sub(r"\((?:r|tm|c)\)", "", device)
+    return "".join(character for character in device if character.isalnum())
 
 
 def _alert_error(message: str) -> None:

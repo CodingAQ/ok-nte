@@ -1,3 +1,4 @@
+import sys
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -6,18 +7,41 @@ from src import GAME_EXE
 from src import audio_routing
 from src.audio_routing import (
     CONF_ENABLE,
+    CONF_SOUND_VOLUME_VIEW_PATH,
     DEFAULT_RENDER_DEVICE,
     _BackgroundAudioRouter,
     _RouteRequest,
     _background_audio_routing_validator,
+    _resolve_sound_volume_view_device_id,
     audio_route_command,
+    discover_output_devices,
     parse_app_output_device,
-    parse_sound_volume_view_devices,
 )
 
 
 class AudioRoutingTests(unittest.TestCase):
-    def test_parse_sound_volume_view_devices_keeps_render_devices_only(self):
+    def test_discover_output_devices_uses_sounddevice_playback_devices(self):
+        fake_sounddevice = SimpleNamespace(
+            query_hostapis=lambda: [
+                {"name": "MME"},
+                {"name": "Windows WASAPI"},
+                {"name": "Windows WDM-KS"},
+            ],
+            query_devices=lambda: [
+                {"name": "Microsoft Sound Mapper - Output", "max_output_channels": 2, "hostapi": 0},
+                {"name": "Speakers (Realtek(R) Audio)", "max_output_channels": 2, "hostapi": 1},
+                {"name": "Speakers (Realtek(R) Audio)", "max_output_channels": 2, "hostapi": 1},
+                {"name": "Microphone (Realtek(R) Audio)", "max_output_channels": 0, "hostapi": 1},
+                {"name": "Speakers 1", "max_output_channels": 2, "hostapi": 2},
+            ],
+        )
+
+        with patch.dict(sys.modules, {"sounddevice": fake_sounddevice}):
+            devices = discover_output_devices()
+
+        self.assertEqual(devices, [DEFAULT_RENDER_DEVICE, "Speakers (Realtek(R) Audio)"])
+
+    def test_resolve_sound_volume_view_device_id_matches_sounddevice_name(self):
         data = {
             "Sound Items": [
                 {
@@ -25,61 +49,41 @@ class AudioRoutingTests(unittest.TestCase):
                     "Command-Line Friendly ID": "Realtek Audio\\Device\\Speakers\\Render",
                     "Type": "Device",
                     "Direction": "Render",
-                    "Device State": "Active",
+                    "Device": "Realtek Audio",
                 },
+            ]
+        }
+
+        self.assertEqual(
+            _resolve_sound_volume_view_device_id(data, "Speakers (Realtek(R) Audio)"),
+            "Realtek Audio\\Device\\Speakers\\Render",
+        )
+
+    def test_resolve_sound_volume_view_device_id_ignores_non_render_records(self):
+        data = {
+            "Sound Items": [
                 {
                     "Name": "Microphone",
                     "Command-Line Friendly ID": "Realtek Audio\\Device\\Microphone\\Capture",
                     "Type": "Device",
                     "Direction": "Capture",
-                    "Device State": "Active",
                 },
                 {
                     "Name": "HTGame.exe",
                     "Command-Line Friendly ID": "HTGame.exe",
                     "Type": "Application",
                     "Direction": "Render",
-                    "Device State": "Active",
                 },
                 {
                     "Name": "聲波音量",
-                    "Command-Line Friendly ID": (
-                        "VB-Audio VoiceMeeter VAIO\\Subunit\\聲波音量"
-                    ),
+                    "Command-Line Friendly ID": "VB-Audio VoiceMeeter VAIO\\Subunit\\聲波音量",
                     "Type": "Subunit",
                     "Direction": "Render",
-                    "Device State": "Active",
                 },
             ]
         }
 
-        devices = parse_sound_volume_view_devices(data)
-
-        self.assertEqual(
-            devices,
-            [
-                DEFAULT_RENDER_DEVICE,
-                "Realtek Audio\\Device\\Speakers\\Render",
-            ],
-        )
-
-    def test_parse_sound_volume_view_devices_dedupes_case_insensitively(self):
-        data = [
-            {
-                "Name": "Speakers",
-                "Command-LineFriendlyID": "USB Audio\\Device\\Speakers\\Render",
-                "Type": "Device",
-            },
-            {
-                "Name": "Speakers",
-                "Command-Line Friendly ID": "usb audio\\device\\speakers\\render",
-                "Type": "Device",
-            },
-        ]
-
-        devices = parse_sound_volume_view_devices(data)
-
-        self.assertEqual(devices, [DEFAULT_RENDER_DEVICE, "USB Audio\\Device\\Speakers\\Render"])
+        self.assertEqual(_resolve_sound_volume_view_device_id(data, "Microphone"), "")
 
     def test_audio_route_command_targets_game_process(self):
         self.assertEqual(
@@ -128,6 +132,30 @@ class AudioRoutingTests(unittest.TestCase):
 
     def test_parse_app_output_device_falls_back_to_default_without_app_record(self):
         self.assertEqual(parse_app_output_device([]), DEFAULT_RENDER_DEVICE)
+
+    def test_router_captures_original_app_output_device_before_background_route(self):
+        router = _BackgroundAudioRouter()
+        router._pending_route = _RouteRequest(
+            "USB Audio\\Device\\Speakers\\Render",
+            capture_original=True,
+        )
+        calls = []
+
+        def route(_exe_path, device):
+            calls.append(device)
+            return True
+
+        router._apply_route = route
+
+        with patch.object(
+            audio_routing,
+            "discover_app_output_device",
+            return_value="USB Audio\\Device\\Headphones\\Render",
+        ):
+            router._run_pending_routes("SoundVolumeView.exe")
+
+        self.assertEqual(calls, ["USB Audio\\Device\\Speakers\\Render"])
+        self.assertEqual(router._original_device, "USB Audio\\Device\\Headphones\\Render")
 
     def test_failed_route_does_not_mark_device_as_requested(self):
         router = _BackgroundAudioRouter()
@@ -206,6 +234,41 @@ class AudioRoutingTests(unittest.TestCase):
 
         route.assert_called_once_with()
 
+    def test_reset_to_default_restores_audio_when_enabled(self):
+        class ResettableConfig(dict):
+            def reset_to_default(self):
+                self.clear()
+                self.update({CONF_ENABLE: False})
+
+        config = ResettableConfig({CONF_ENABLE: True})
+        global_config = SimpleNamespace(get_config=lambda _name: config)
+
+        with patch.object(audio_routing.og, "global_config", global_config, create=True):
+            audio_routing._routing_config()
+            audio_routing._routing_config()
+
+        with patch.object(audio_routing, "restore_background_audio_router") as restore:
+            config.reset_to_default()
+
+        restore.assert_called_once_with()
+
+    def test_reset_to_default_patch_preserves_original_arguments(self):
+        class ResettableConfig(dict):
+            def reset_to_default(self, enabled):
+                self.clear()
+                self.update({CONF_ENABLE: enabled})
+
+        config = ResettableConfig({CONF_ENABLE: True})
+        global_config = SimpleNamespace(get_config=lambda _name: config)
+
+        with patch.object(audio_routing.og, "global_config", global_config, create=True):
+            audio_routing._routing_config()
+
+        with patch.object(audio_routing, "restore_background_audio_router") as restore:
+            config.reset_to_default(False)
+
+        restore.assert_called_once_with()
+
     def test_route_current_window_state_uses_last_window_signal(self):
         router = _BackgroundAudioRouter()
         router._last_visible = False
@@ -216,6 +279,33 @@ class AudioRoutingTests(unittest.TestCase):
         router.route_current_window_state()
 
         self.assertEqual(calls, [(False, True)])
+
+    def test_foreground_route_waits_for_original_device_capture(self):
+        router = _BackgroundAudioRouter()
+        router._pending_route = _RouteRequest(
+            "USB Audio\\Device\\Speakers\\Render",
+            capture_original=True,
+        )
+        router._requested_device = DEFAULT_RENDER_DEVICE
+        router._worker = SimpleNamespace(is_alive=lambda: True)
+        config = {CONF_SOUND_VOLUME_VIEW_PATH: "SoundVolumeView.exe"}
+
+        with patch.object(audio_routing, "_routing_config", return_value=config):
+            with patch.object(audio_routing, "_is_sound_volume_view_path", return_value=True):
+                router._request_route(True, enabled=True)
+
+        self.assertEqual(
+            router._pending_route,
+            _RouteRequest(DEFAULT_RENDER_DEVICE, capture_original=False, restore_original=True),
+        )
+
+        calls = []
+        router._original_device = "USB Audio\\Device\\Headphones\\Render"
+        router._apply_route = lambda _exe_path, device: calls.append(device) or True
+
+        router._run_pending_routes("SoundVolumeView.exe")
+
+        self.assertEqual(calls, ["USB Audio\\Device\\Headphones\\Render"])
 
     def test_router_binds_to_ok_exit_event_for_forced_terminal_exit(self):
         router = _BackgroundAudioRouter()
