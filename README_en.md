@@ -151,6 +151,18 @@ If the solutions above do not resolve your issue, feel free to report it via [**
 *   **Log File**: Attach the `.log` file from the program's directory.
 *   **Detailed Description**: What were you doing? What exactly happened? Can you reproduce the issue consistently, or does it happen randomly?
 
+## 💻 Command Line Arguments
+
+You can automate startup by using command line arguments.
+
+```bash
+# Example: Automatically execute the second task (daily tasks) upon startup, and exit the program once the task completes
+ok-nte.exe -t 2 -e
+```
+
+*   `-t` or `--task`: Automatically execute the N-th task upon startup. `1` represents the first task in the task list.
+*   `-e` or `--exit`: Automatically exit the program after the task is completed.
+
 ## 💬 Community
 
 *   **Discord**: [https://discord.gg/vVyCatEBgA](https://discord.gg/vVyCatEBgA)
