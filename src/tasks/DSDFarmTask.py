@@ -80,9 +80,9 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
         self.do_teleport_on_spot = False
 
     def run(self):
+        self.sleep_check_skip.all = True
         super().run()
         try:
-            self.sleep_check_skip.all = True
             self.do_run()
         except TaskDisabledException:
             pass
