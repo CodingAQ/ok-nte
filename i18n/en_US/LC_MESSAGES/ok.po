@@ -824,6 +824,12 @@ msgstr "繁體中文"
 msgid "文案生成模型调用地址, 需兼容OpenAI接口请求格式"
 msgstr "Model API URL, must be compatible with OpenAI API format"
 
+msgid "模型调用超时时间(s)"
+msgstr "Model Call Timeout (s)"
+
+msgid "文案生成调用模型的超时时间, 超时将回退使用本地词库, 留空使用30s"
+msgstr "Timeout for text generation model calls. Will fallback to local word bank on timeout. Leave empty for 30s."
+
 msgid "关闭后将降级使用本地词库抽取发帖回复文案"
 msgstr "When disabled, it will fallback to the local vocabulary database"
 

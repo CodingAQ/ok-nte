@@ -41,6 +41,7 @@ class BagelAITools(NTEOneTimeTask, BaseNTETask):
     CONF_HELPER_MODE = "文案助手模式"
     CONF_AUTO_AICONFIG = "智能体模式选项"
     CONF_MODEL_URL = "模型调用地址"
+    CONF_MODEL_TIMEOUT = "模型调用超时时间(s)"
     CONF_MODEL_API = "模型调用API_Key"
     CONF_MODEL_NAME = "所调用模型名称"
     CONF_PROMPT_REPLY = "回复生成提示词"
@@ -80,6 +81,7 @@ class BagelAITools(NTEOneTimeTask, BaseNTETask):
                 self.CONF_AUTO_AICONFIG: ["自动发帖", "自动回帖", "自动按赞", "过滤水贴"],
                 self.CONF_MODEL: False,
                 self.CONF_MODEL_URL: "",
+                self.CONF_MODEL_TIMEOUT: 30,
                 self.CONF_MODEL_API: "",
                 self.CONF_MODEL_NAME: "qwen/qwen3-vl-4b",
                 self.CONF_PROMPT_REPLY: self.model_prompt.get("REPLY", ""),
@@ -94,6 +96,7 @@ class BagelAITools(NTEOneTimeTask, BaseNTETask):
                 self.CONF_HELPER_MODE: "开启助手模式后, 将只会辅助生成文案",
                 self.CONF_AUTO_AICONFIG: "自动回帖会同时点赞",
                 self.CONF_MODEL_URL: "文案生成模型调用地址, 需兼容OpenAI接口请求格式",
+                self.CONF_MODEL_TIMEOUT: "文案生成调用模型的超时时间, 超时将回退使用本地词库, 留空使用30s",
                 self.CONF_MODEL_API: "未设置请留空, 请勿泄露API_Key!",
                 self.CONF_MODEL_NAME: "需要支持视觉输入的视觉语言模型",
                 self.CONF_PROMPT_REPLY: "回复生成提示词, 请先调试好提示词再使用",
@@ -122,6 +125,7 @@ class BagelAITools(NTEOneTimeTask, BaseNTETask):
                     "sub_configs": {
                         True: [
                             self.CONF_MODEL_URL,
+                            self.CONF_MODEL_TIMEOUT,
                             self.CONF_MODEL_API,
                             self.CONF_MODEL_NAME,
                             self.CONF_PROMPT_REPLY,
@@ -1310,7 +1314,13 @@ class BagelAITools(NTEOneTimeTask, BaseNTETask):
         }
 
         self.log_info("正在向后端发送推理请求...")
-        response = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=30)
+        timeout_raw = self.config.get(self.CONF_MODEL_TIMEOUT, 30)
+        # 超时时间未配置或配置非法时回退到默认值 30 秒
+        try:
+            timeout = 30 if timeout_raw in ("", None) else int(timeout_raw)
+        except (ValueError, TypeError):
+            timeout = 30
+        response = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=timeout)
 
         if response.status_code == 200:
             model_reply = response.json()["choices"][0]["message"]["content"].strip()
