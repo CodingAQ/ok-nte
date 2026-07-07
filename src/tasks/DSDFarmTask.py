@@ -71,6 +71,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
         )
         self.combat_detect_policy.miss_required = 3
         self.combat_detect_policy.uncertain_seconds = 2
+        self.do_teleport_on_spot = False
 
     def run(self):
         super().run()
@@ -85,6 +86,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
             self.sleep_check_skip.all = False
 
     def do_run(self):
+        self.do_teleport_on_spot = False
         self.use_ultimate = self.config.get(self.CONF_USE_ULT, True)
         self.deside_map_zoom()
         rounds = self.configured_rounds(default=0)
@@ -106,6 +108,10 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
             self.operate_click(0.057, 0.218)
             self.sleep(0.5)
             self.ensure_main()
+            if self.do_teleport_on_spot:
+                self.sleep(0.5)
+                self.teleport_on_spot()
+                self.ensure_main()
             self.deside_action()
             self.next_frame()
             round_index += 1
@@ -125,6 +131,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
             self.map_zoom(zoom="mid")
 
     def deside_action(self):
+        self.do_teleport_on_spot = False
         location = self.config.get(self.CONF_LOCATION, None)
 
         if location == self.locations[0]:
@@ -200,6 +207,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
         box = self.box_of_screen(0.410, 0.234, 0.560, 0.556)
         while True:
             if self.teleport_to_top_bonfire(box):
+                self.do_teleport_on_spot = True
                 break
             self.ensure_main()
             self.sleep(0.5)
@@ -271,5 +279,12 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
 
         teleport = min(teleports, key=lambda teleport: teleport.y)
         self.operate_click(teleport, action_name="click_map_teleport")
+        self.sleep(0.5)
+        return self.click_traval_button(raise_if_not_found=False)
+    
+    def teleport_on_spot(self):
+        self.ensure_main()
+        self.open_map()
+        self.operate_click(0.5, 0.5, action_name="click_map_teleport")
         self.sleep(0.5)
         return self.click_traval_button(raise_if_not_found=False)
