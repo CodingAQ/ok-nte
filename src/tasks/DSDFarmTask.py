@@ -149,9 +149,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
 
     def location_0(self):
         if self.walk_until_combat(run=True, delay=1):
-            with self.skip_sleep_checks() as skip:
-                skip.all = False
-                self.deside_combat_action()
+            self.deside_combat_action()
         self.sleep(0.5)
         while True:
             if self.teleport_to_nearest_bonfire():
@@ -184,9 +182,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
         self.sleep(2)
         self.send_key_up("w")
         if self.wait_until(self.in_combat, time_out=10):
-            with self.skip_sleep_checks() as skip:
-                skip.all = False
-                self.deside_combat_action()
+            self.deside_combat_action()
         self.sleep(0.5)
         box = self.box_of_screen(0.498, 0.102, 0.931, 0.827)
         while True:
@@ -206,9 +202,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
         self.sleep(2.10)
         self.send_key_up("a")
         if self.wait_until(self.in_combat, time_out=10):
-            with self.skip_sleep_checks() as skip:
-                skip.all = False
-                self.deside_combat_action()
+            self.deside_combat_action()
         self.sleep(0.5)
         box = self.box_of_screen(0.410, 0.234, 0.560, 0.556)
         while True:
@@ -222,24 +216,26 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
         def action(*args, **kwargs):
             self.click()
             self.sleep(0.1)
-        try:
-            dont_switch = self.config.get(self.CONF_DONT_SWITCH, False)
-            max_combat_time = self.config.get(self.CONF_MAX_COMBAT_TIME, 1200)
+        with self.skip_sleep_checks() as skip:
+            skip.all = False
+            try:
+                dont_switch = self.config.get(self.CONF_DONT_SWITCH, False)
+                max_combat_time = self.config.get(self.CONF_MAX_COMBAT_TIME, 1200)
 
-            if dont_switch:
-                old_switch = self.switch_next_char
-                old_switch_start = self.switch_to_combat_start_char
-                old_switch_other = self.switch_other_char
-                self.switch_next_char = action
-                self.switch_to_combat_start_char = action
-                self.switch_other_char =  lambda *args, **kwargs: True
+                if dont_switch:
+                    old_switch = self.switch_next_char
+                    old_switch_start = self.switch_to_combat_start_char
+                    old_switch_other = self.switch_other_char
+                    self.switch_next_char = action
+                    self.switch_to_combat_start_char = action
+                    self.switch_other_char =  lambda *args, **kwargs: True
 
-            return self.combat_once(max_combat_time=max_combat_time)
-        finally:
-            if dont_switch:
-                self.switch_next_char = old_switch
-                self.switch_to_combat_start_char = old_switch_start
-                self.switch_other_char = old_switch_other
+                return self.combat_once(max_combat_time=max_combat_time)
+            finally:
+                if dont_switch:
+                    self.switch_next_char = old_switch
+                    self.switch_to_combat_start_char = old_switch_start
+                    self.switch_other_char = old_switch_other
 
     def map_zoom(self, zoom="max"):
         self.ensure_main()
