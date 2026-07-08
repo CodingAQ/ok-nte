@@ -26,7 +26,7 @@ class OwnerSelectionTask(NTEOneTimeTask, RecordTask):
     CONF_CORDS = "记录坐标"
 
     REVENUE_CHECK_INTERVAL = 1.0  # OCR 检测营业额间隔（秒）
-    CLICK_INTERVAL = 0.5  # 步骤3点击间隔（秒）
+    CLICK_INTERVAL = 1  # 步骤3点击间隔（秒）
     CONTROL_TIMEOUT = 120  # 单轮玩法最长等待（秒）
 
     POS_START = (0.8957, 0.9326)  # 开始玩法按钮
@@ -72,13 +72,16 @@ class OwnerSelectionTask(NTEOneTimeTask, RecordTask):
                 hotkey = og.executor.basic_options.get("Start/Stop")
             except Exception:
                 hotkey = "--"
-            if show_dialog_and_wait(
-                self.tr(self.name),
-                tr_fmt(ROB_MODE_HINT, rob_mode=self.tr(self.CONF_ROB), hotkey=hotkey),
-                rich_text=False,
-                close_delay_seconds=2,
-                hide_cancel=False,
-            ) == 0:
+            if (
+                show_dialog_and_wait(
+                    self.tr(self.name),
+                    tr_fmt(ROB_MODE_HINT, rob_mode=self.tr(self.CONF_ROB), hotkey=hotkey),
+                    rich_text=False,
+                    close_delay_seconds=2,
+                    hide_cancel=False,
+                )
+                == 0
+            ):
                 return
         success_count = 0
         failed_count = 0
@@ -144,8 +147,11 @@ class OwnerSelectionTask(NTEOneTimeTask, RecordTask):
         # 步骤4：关闭结果界面 → 结算确认
         self.info_set("当前阶段", "结算确认")
         self.wait_click_confirm(
-            action=lambda: self.operate_click(*self.POS_CLOSE, interval=1),
+            action=lambda: self.operate_click(
+                *self.POS_CLOSE, action_name="settle_reward", interval=1
+            ),
             range=(0.629, 0.734, 0.688, 0.819),
+            time_out=60,
         )
         self.sleep(0.5)
         self.info_set("当前阶段", "本轮完成")
