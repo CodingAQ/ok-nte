@@ -112,6 +112,7 @@ class HeistTask(BaseNTETask, TriggerTask):
     def _spam_key_loop(self):
         if not self.enabled or self._is_onetime_task_running():
             self._submitted = False
+            self._reset_state()
             return False
 
         if not self._is_active():
@@ -282,9 +283,12 @@ class HeistTask(BaseNTETask, TriggerTask):
         self._quick_run_time = 0
         self._quick_run_step = 0
 
-    def _reset_state(self):
+    def _reset_state(self, clear_physical_keys=False):
         self._reset_pick_key()
         self._reset_quick_run()
+        self.suppressed_keys.clear()
+        if clear_physical_keys:
+            self.physical_keys_pressed.clear()
 
     def _get_vk_codes(self, key):
         if key is None:
@@ -325,8 +329,10 @@ class HeistTask(BaseNTETask, TriggerTask):
         if key is None:
             return False
         self.pynput.press(key)
-        time.sleep(0.02)
-        self.pynput.release(key)
+        try:
+            time.sleep(0.02)
+        finally:
+            self.pynput.release(key)
         return True
 
     def _release_key(self, key):
@@ -376,8 +382,8 @@ class HeistTask(BaseNTETask, TriggerTask):
         if self.listener is not None:
             self.listener.stop()
             self.listener = None
-        self.physical_keys_pressed = set()
-        self.suppressed_keys = set()
+        self._submitted = False
+        self._reset_state(clear_physical_keys=True)
 
     def _win32_filter(self, msg, data):
         if data.flags & 0x10:
@@ -390,8 +396,9 @@ class HeistTask(BaseNTETask, TriggerTask):
         elif msg in self.KEY_UP_MESSAGES:
             self.physical_keys_pressed.discard(data.vkCode)
 
-        if self._should_suppress(msg, data.vkCode):
-            self.listener.suppress_event()
+        listener = self.listener
+        if listener is not None and self._should_suppress(msg, data.vkCode):
+            listener.suppress_event()
         return True
 
     def _is_key_pressed(self, key):
@@ -455,7 +462,7 @@ class HeistTask(BaseNTETask, TriggerTask):
             self.LISTENER_KEY_LOG_INTERVAL,
         )
 
-    def _log_diagnostic(self, key, message, interval, level="info"):
+    def _log_diagnostic(self, key, message, interval, level="debug"):
         self.log_gated(
             level,
             message,
