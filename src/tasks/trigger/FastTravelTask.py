@@ -1,3 +1,5 @@
+import re
+
 from ok import Logger, TriggerTask
 
 from src import text_black_color
@@ -9,12 +11,14 @@ logger = Logger.get_logger(__name__)
 
 
 class FastTravelTask(BaseNTETask, TriggerTask):
+    DEFAULT_MATCH_WORDS = ("Teleport", "传送")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.default_config = {"_enabled": False}
         self.name = "快速传送"
         self.description = "地图中自动点击传送"
-        self.match = ["Teleport", "传送"]
+        self.match = self._compile_match_words(self.DEFAULT_MATCH_WORDS)
         self.default_config.update(
             {
                 "匹配文字": "",
@@ -32,8 +36,7 @@ class FastTravelTask(BaseNTETask, TriggerTask):
         ):
             return
         if btn := self.find_traval_button():
-            if config_match := self.config.get("匹配文字"):
-                self.match = [s.strip() for s in config_match.split(",")]
+            self.match = self._configured_match_words()
             to_x = (btn.x + btn.width) / self.width
             results = self.ocr(
                 box=self.box_of_screen(0.7438, 0.8736, to_x, 0.9118),
@@ -44,5 +47,17 @@ class FastTravelTask(BaseNTETask, TriggerTask):
             )
 
             if results:
-                self.click_traval_button(btn)
-                return
+                self.click_traval_button(results[0])
+
+    @staticmethod
+    def _compile_match_words(words):
+        return [
+            re.compile(re.escape(word.strip()), re.IGNORECASE) for word in words if word.strip()
+        ]
+
+    def _configured_match_words(self):
+        if config_match := self.config.get("匹配文字"):
+            return self._compile_match_words(config_match.split(",")) or self._compile_match_words(
+                self.DEFAULT_MATCH_WORDS
+            )
+        return self._compile_match_words(self.DEFAULT_MATCH_WORDS)
