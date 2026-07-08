@@ -360,8 +360,9 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
                     logger.debug(f"combat_once loop {self.chars}")
                     self.get_current_char(raise_exception=True).perform()
                     if time.time() > deadline:
-                        logger.info(f"Combat maximum duration of {max_combat_time}s reached.")
-                        break
+                        self.raise_not_in_combat(
+                            f"Combat maximum duration of {max_combat_time}s reached."
+                        )
             except CharDeadException as e:
                 raise e
             except NotInCombatException as e:
