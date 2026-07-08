@@ -205,6 +205,22 @@ class TestCustomChar(TaskTestCase):
         # 解綁後，介面會刷新，combo_text 應顯示未綁定的提示文字
         self.assertEqual(tab.combo_text.toPlainText(), tab.tr_unbound_text)
 
+    def test_char_manager_tab_combo_selection_updates_content_with_stale_index(self):
+        """切换出招表时，即使文本信号先于索引更新，也应显示新出招表内容。"""
+        tab = CharManagerTab()
+        tab.manager = self.manager
+
+        combo_a_id = self.manager.add_combo("combo_a", "skill")
+        self.manager.add_combo("combo_b", "ultimate")
+        self.manager.create_character("char_ui_1", combo_a_id)
+
+        tab.refresh_list()
+        tab.combo_select.setCurrentIndex(tab.combo_select.findData(combo_a_id))
+
+        tab.on_combo_changed("combo_b")
+
+        self.assertEqual(tab.combo_text.toPlainText(), "ultimate")
+
     def test_team_manager_tab_ui(self):
         """測試 TeamManagerTab 掃描結束後的 UI 狀態變更邏輯與 SlotCard 確認"""
         tab = TeamManagerTab(manager=self.manager)

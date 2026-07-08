@@ -32,15 +32,14 @@ class TeamScanner:
             if feature_mat is None or feature_mat.size <= 0:
                 continue
 
-            is_match, match_name, confidence = self.manager.match_feature(task, feature_mat)
-            name = match_name if is_match else None
+            _, match_char_id, confidence = self.manager.match_feature(task, feature_mat)
             results.append(
                 {
                     "index": i,
                     "mat": feature_mat,
                     "width": w,
                     "height": h,
-                    "match": name,
+                    "match": match_char_id,
                     "confidence": confidence,
                 }
             )

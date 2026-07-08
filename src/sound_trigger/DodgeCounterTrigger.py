@@ -83,8 +83,14 @@ class DodgeCounterTrigger:
 
     def _default_dodge_action(self):
         logger.info("Dodge sequence: Left Shift")
-        self.task.send_key("lshift")
-        time.sleep(0.02)
+        try:
+            self.task.send_key_down("d")
+            time.sleep(0.02)
+            self.task.send_key("lshift")
+            time.sleep(0.02)
+        finally:
+            self.task.send_key_up("d")
+            time.sleep(0.02)
         self.task.send_key("lshift")
         time.sleep(0.02)
 

@@ -505,11 +505,10 @@ class CharManagerTab(CustomTab):
         if text is None:
             text = self.combo_select.currentText()
         text = text.strip()
-
-        idx = self.combo_select.currentIndex()
-        if idx >= 0 and text == self.combo_select.itemText(idx):
+        idx = self.combo_select.findText(text)
+        if idx >= 0:
             data = self.combo_select.itemData(idx)
-            if isinstance(data, str) and data:
+            if isinstance(data, str):
                 return data
         return ""
 
@@ -541,7 +540,7 @@ class CharManagerTab(CustomTab):
         self._set_combo_selection_by_id(combo_id)
 
         # Manually trigger the text change logic to ensure built-in warnings render
-        self.on_combo_changed(combo_name)
+        self.on_combo_changed(combo_name, combo_id)
 
         # update feature grid
         while self.feature_grid.count() > 0:
