@@ -205,17 +205,22 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
             self.deside_combat_action()
         self.sleep(0.5)
         box = self.box_of_screen(0.410, 0.234, 0.560, 0.556)
+        switch = False
         while True:
             if self.teleport_to_top_bonfire(box):
                 self.do_teleport_on_spot = True
                 break
             self.ensure_main()
             self.sleep(0.5)
+            key = "w" if switch else "s"
+            self.send_key(key, down_time=3)
+            switch = not switch
 
     def deside_combat_action(self):
         def action(*args, **kwargs):
             self.click()
             self.sleep(0.1)
+
         with self.skip_sleep_checks() as skip:
             skip.all = False
             try:
@@ -228,7 +233,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
                     old_switch_other = self.switch_other_char
                     self.switch_next_char = action
                     self.switch_to_combat_start_char = action
-                    self.switch_other_char =  lambda *args, **kwargs: True
+                    self.switch_other_char = lambda *args, **kwargs: True
 
                 return self.combat_once(max_combat_time=max_combat_time)
             finally:
