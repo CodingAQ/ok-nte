@@ -18,6 +18,7 @@ from .requests import (
 from .types import (
     ActionIntent,
     ActionResult,
+    EntryFactory,
     ExpectedEntry,
     FieldClaim,
     RequestStatus,
@@ -230,3 +231,4 @@ class _IntentSet:
 
     actions: list[ActionIntent] = field(default_factory=list)
     claims: list[FieldClaim] = field(default_factory=list)
+    entry: EntryFactory | None = None

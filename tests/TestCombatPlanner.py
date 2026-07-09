@@ -9,8 +9,8 @@ from src.combat.planner import (
     ActionResult,
     ActionSlot,
     ActionTag,
+    CombatPlan,
     CombatPlanner,
-    EntryChainPolicy,
     ExpectedEntry,
     FieldClaim,
     FieldPreference,
@@ -93,12 +93,15 @@ class FakeChar:
             combat_start_priority=self._combat_start_priority,
         )
 
-    def combat_intents(self, context):
+    def combat_plan(self, context):
         self.intent_calls += 1
         if callable(self._intents):
-            return self._intents(context)
+            intents = self._intents(context)
+            if isinstance(intents, CombatPlan):
+                return intents
+            return self._plan_from_intents(intents)
         if self._intents is not None:
-            return list(self._intents)
+            return self._plan_from_intents(self._intents)
 
         claims = self._claims(context) if callable(self._claims) else self._claims
         slot = None
@@ -106,7 +109,7 @@ class FakeChar:
             slot = ActionSlot.SKILL
         elif ActionTag.ULTIMATE_ACTION in self._tags:
             slot = ActionSlot.ULTIMATE
-        return [
+        return self._plan_from_intents([
             ActionIntent(
                 name=f"{self.name}_action",
                 tags=set(self._tags),
@@ -121,7 +124,17 @@ class FakeChar:
                 can_execute=self._can_execute,
                 priority_ready=self._priority_ready,
             )
-        ] + list(claims)
+        ] + list(claims))
+
+    def _plan_from_intents(self, intents):
+        actions = []
+        claims = []
+        for intent in intents:
+            if isinstance(intent, ActionIntent):
+                actions.append(intent)
+            elif isinstance(intent, FieldClaim):
+                claims.append(intent)
+        return CombatPlan(actions=actions, claims=claims)
 
     def combat_policies(self, context):
         if self._policies is not None:
@@ -159,7 +172,7 @@ class PublicApiChar(BaseChar):
     def __str__(self):
         return self.char_name
 
-    def combat_intents(self, context):
+    def combat_plan(self, context):
         return self._intents_factory(self, context)
 
     def describe_role(self):
@@ -189,14 +202,6 @@ class PublicApiChar(BaseChar):
 
 class TestCombatPlanner(unittest.TestCase):
     def test_planner_namespace_exports_existing_enums(self):
-        self.assertEqual(
-            Planner.EntryChainPolicy.__qualname__,
-            "Planner.EntryChainPolicy",
-        )
-        self.assertIs(
-            Planner.EntryChainPolicy.STOP_ON_SUCCESS,
-            EntryChainPolicy.STOP_ON_SUCCESS,
-        )
         self.assertIs(Planner.NEVER_EXPIRES, NEVER_EXPIRES)
 
     def _char(self, index, name, **kwargs):
@@ -234,28 +239,29 @@ class TestCombatPlanner(unittest.TestCase):
         return planner
 
     def _publish(self, planner, source, publish):
-        original_combat_intents = source.combat_intents
+        original_combat_plan = source.combat_plan
 
         def execute(context):
             publish(context)
             return True
 
-        def combat_intents(_):
-            return [
+        def combat_plan(_):
+            return CombatPlan(
+                actions=[
                 ActionIntent(
                     name="publish_test_request",
                     tags={ActionTag.DEFAULT_ACTION},
                     execute=execute,
                     reason="publish test request",
-                    chain_policy=EntryChainPolicy.STOP,
                 )
-            ]
+                ]
+            )
 
-        source.combat_intents = combat_intents
+        source.combat_plan = combat_plan
         try:
             planner.perform_current_char(source)
         finally:
-            source.combat_intents = original_combat_intents
+            source.combat_plan = original_combat_plan
 
     def _action(
         self,
@@ -265,7 +271,6 @@ class TestCombatPlanner(unittest.TestCase):
         calls=None,
         success=True,
         priority_ready=None,
-        chain_policy=EntryChainPolicy.CONTINUE,
     ):
         def execute(_):
             if calls is not None:
@@ -284,7 +289,6 @@ class TestCombatPlanner(unittest.TestCase):
             execute=execute,
             reason=f"{name} ready",
             priority_ready=priority_ready,
-            chain_policy=chain_policy,
         )
 
     def test_main_dps_field_preference_boosts_entry(self):
@@ -307,7 +311,7 @@ class TestCombatPlanner(unittest.TestCase):
 
         self.assertEqual(decision.target, support)
 
-    def test_decide_switch_caches_combat_intents_per_char(self):
+    def test_decide_switch_caches_combat_plan_per_char(self):
         current = FakeChar(0, "current")
         claimed = FakeChar(
             1,
@@ -719,27 +723,27 @@ class TestCombatPlanner(unittest.TestCase):
         self.assertGreater(decision.priority, baseline.priority)
         self.assertIn("fulfill request", decision.reason)
 
-    def test_stop_on_success_prevents_following_ready_action(self):
+    def test_entry_flow_can_stop_after_success(self):
         calls = []
-        char = FakeChar(
-            0,
-            "fadia",
-            intents=lambda _: [
-                self._action(
-                    "fadia_ultimate",
-                    {ActionTag.ULTIMATE_ACTION},
-                    ActionSlot.ULTIMATE,
-                    calls,
-                    chain_policy=Planner.EntryChainPolicy.STOP_ON_SUCCESS,
-                ),
-                self._action(
-                    "fadia_skill",
-                    {ActionTag.SKILL_ACTION},
-                    ActionSlot.SKILL,
-                    calls,
-                ),
-            ],
+        ultimate = self._action(
+            "fadia_ultimate",
+            {ActionTag.ULTIMATE_ACTION},
+            ActionSlot.ULTIMATE,
+            calls,
         )
+        skill = self._action(
+            "fadia_skill",
+            {ActionTag.SKILL_ACTION},
+            ActionSlot.SKILL,
+            calls,
+        )
+
+        def entry():
+            ultimate_result = yield ultimate
+            if not ultimate_result:
+                yield skill
+
+        char = FakeChar(0, "fadia", intents=lambda _: CombatPlan([ultimate, skill], entry=entry))
         planner = self._planner([char])
 
         result = planner.perform_current_char(char)
@@ -747,28 +751,28 @@ class TestCombatPlanner(unittest.TestCase):
         self.assertEqual(calls, ["fadia_ultimate"])
         self.assertEqual(result.name, "fadia_ultimate")
 
-    def test_stop_on_success_allows_next_action_when_first_fails(self):
+    def test_entry_flow_can_continue_after_failure(self):
         calls = []
-        char = FakeChar(
-            0,
-            "fadia",
-            intents=lambda _: [
-                self._action(
-                    "fadia_ultimate",
-                    {ActionTag.ULTIMATE_ACTION},
-                    ActionSlot.ULTIMATE,
-                    calls,
-                    success=False,
-                    chain_policy=EntryChainPolicy.STOP_ON_SUCCESS,
-                ),
-                self._action(
-                    "fadia_skill",
-                    {ActionTag.SKILL_ACTION},
-                    ActionSlot.SKILL,
-                    calls,
-                ),
-            ],
+        ultimate = self._action(
+            "fadia_ultimate",
+            {ActionTag.ULTIMATE_ACTION},
+            ActionSlot.ULTIMATE,
+            calls,
+            success=False,
         )
+        skill = self._action(
+            "fadia_skill",
+            {ActionTag.SKILL_ACTION},
+            ActionSlot.SKILL,
+            calls,
+        )
+
+        def entry():
+            ultimate_result = yield ultimate
+            if not ultimate_result:
+                yield skill
+
+        char = FakeChar(0, "fadia", intents=lambda _: CombatPlan([ultimate, skill], entry=entry))
         planner = self._planner([char])
 
         result = planner.perform_current_char(char)
@@ -816,7 +820,7 @@ class TestCombatPlanner(unittest.TestCase):
             task,
             0,
             "api_char",
-            lambda source, _: source.intents(
+            lambda source, _: source.plan(
                 source.click_skill_action(
                     reason="skill first",
                     can_execute=lambda context: calls.append("skill_allowed") or True,
@@ -841,11 +845,11 @@ class TestCombatPlanner(unittest.TestCase):
             task,
             0,
             "api_char",
-            lambda source, _: source.intents(source.click_arc_action()),
+            lambda source, _: source.plan(source.click_arc_action()),
         )
         context = CombatPlanner(task).context_for(char)
 
-        action = char.combat_intents(context)[0]
+        action = char.combat_plan(context).actions[0]
         result = action.run(context)
 
         self.assertEqual(action.slot, ActionSlot.ARC)
@@ -856,28 +860,25 @@ class TestCombatPlanner(unittest.TestCase):
         self.assertEqual(result.tags, {ActionTag.ARC_ACTION})
         self.assertEqual(char.arc_clicked, 1)
 
-    def test_basechar_click_helpers_run_after_execute_hooks(self):
+    def test_entry_flow_runs_result_followups(self):
         calls = []
         task = FakeTask()
-        char = PublicApiChar(
-            task,
-            0,
-            "api_char",
-            lambda source, _: source.intents(
-                source.click_skill_action(
-                    reason="skill first",
-                    after_execute=lambda context, success: calls.append(
-                        ("skill_after", context.current_char.char_name, success)
-                    ),
-                ),
-                source.click_ultimate_action(
-                    reason="ultimate second",
-                    after_execute=lambda context, success: calls.append(
-                        ("ultimate_after", context.current_char.char_name, success)
-                    ),
-                ),
-            ),
-        )
+
+        def plan(source, context):
+            skill = source.click_skill_action(reason="skill first")
+            ultimate = source.click_ultimate_action(reason="ultimate second")
+
+            def entry():
+                skill_result = yield skill
+                calls.append(("skill_after", context.current_char.char_name, bool(skill_result)))
+                ultimate_result = yield ultimate
+                calls.append(
+                    ("ultimate_after", context.current_char.char_name, bool(ultimate_result))
+                )
+
+            return CombatPlan([skill, ultimate], entry=entry)
+
+        char = PublicApiChar(task, 0, "api_char", plan)
         task.chars = [char]
         planner = CombatPlanner(task)
         planner.reset([char])
@@ -895,34 +896,37 @@ class TestCombatPlanner(unittest.TestCase):
         self.assertEqual(char.ultimate_clicked, 1)
         self.assertEqual(result.name, "api_char_ultimate")
 
-    def test_basechar_click_helper_after_execute_can_override_success(self):
+    def test_action_result_bool_reflects_success(self):
         task = FakeTask()
+        action = ActionIntent(
+            name="failing_action",
+            tags={ActionTag.SKILL_ACTION},
+            slot=ActionSlot.SKILL,
+            execute=lambda _: False,
+        )
         char = PublicApiChar(
             task,
             0,
             "api_char",
-            lambda source, _: source.intents(
-                source.click_skill_action(
-                    after_execute=lambda context, success: False,
-                )
-            ),
+            lambda source, _: CombatPlan([action]),
         )
         task.chars = [char]
         planner = CombatPlanner(task)
         planner.reset([char])
 
-        self.assertFalse(planner.perform_current_char(char).success)
-        self.assertEqual(char.skill_clicked, 1)
+        result = planner.perform_current_char(char)
+
+        self.assertFalse(result)
 
     def test_basechar_skill_helper_respects_slot_reservation(self):
         expired = {"value": False}
         task = FakeTask()
-        source = PublicApiChar(task, 0, "source", lambda source, _: [])
+        source = PublicApiChar(task, 0, "source", lambda source, _: source.plan())
         target = PublicApiChar(
             task,
             1,
             "target",
-            lambda source, _: source.intents(source.click_skill_action()),
+            lambda source, _: source.plan(source.click_skill_action()),
         )
         task.chars = [source, target]
         planner = CombatPlanner(task)
@@ -939,7 +943,7 @@ class TestCombatPlanner(unittest.TestCase):
 
         result = planner.perform_current_char(target)
 
-        self.assertIsNone(result)
+        self.assertFalse(result.success)
         self.assertEqual(target.skill_clicked, 0)
 
         expired["value"] = True
@@ -953,12 +957,12 @@ class TestCombatPlanner(unittest.TestCase):
         expired = {"value": False}
         calls = []
         task = FakeTask()
-        source = PublicApiChar(task, 0, "source", lambda source, _: [])
+        source = PublicApiChar(task, 0, "source", lambda source, _: source.plan())
         target = PublicApiChar(
             task,
             1,
             "target",
-            lambda source, _: source.intents(
+            lambda source, _: source.plan(
                 source.planner_action(
                     tags={ActionTag.DEFAULT_ACTION},
                     slot=ActionSlot.SKILL,
@@ -980,7 +984,9 @@ class TestCombatPlanner(unittest.TestCase):
             ),
         )
 
-        self.assertIsNone(planner.perform_current_char(target))
+        result = planner.perform_current_char(target)
+
+        self.assertFalse(result.success)
         self.assertEqual(calls, [])
 
         expired["value"] = True
@@ -989,7 +995,7 @@ class TestCombatPlanner(unittest.TestCase):
         self.assertTrue(planner.perform_current_char(target).success)
         self.assertEqual(calls, ["custom_skill"])
 
-    def test_perform_current_char_caches_intents_once_per_loop(self):
+    def test_perform_current_char_uses_one_plan_for_default_entry(self):
         calls = []
         char = FakeChar(
             0,
@@ -1014,7 +1020,7 @@ class TestCombatPlanner(unittest.TestCase):
         planner.perform_current_char(char)
 
         self.assertEqual(calls, ["combo_ultimate", "combo_skill"])
-        self.assertEqual(char.intent_calls, 3)
+        self.assertEqual(char.intent_calls, 1)
 
     def test_pending_entry_action_runs_before_replanning_field_time(self):
         calls = []
@@ -1322,7 +1328,7 @@ class TestCombatPlanner(unittest.TestCase):
 
         self.assertFalse(context.can_execute_action(target, slot=ActionSlot.SKILL))
 
-    def test_combat_intents_published_requests_are_ignored(self):
+    def test_combat_plan_published_requests_are_ignored(self):
         target = FakeChar(1, "target")
         source = FakeChar(
             0,
@@ -1330,7 +1336,7 @@ class TestCombatPlanner(unittest.TestCase):
             intents=lambda context: (
                 context.reserve_actions(
                     [ActionReservation.for_action(target, ActionSlot.SKILL)],
-                    reason="invalid intent side effect",
+                    reason="invalid plan side effect",
                     until=NEVER_EXPIRES,
                 )
                 or []
@@ -1759,7 +1765,7 @@ class TestCombatPlanner(unittest.TestCase):
             FakeTask(),
             0,
             "source",
-            lambda char, context: char.intents(
+            lambda char, context: char.plan(
                 char.planner_action(
                     tags={ActionTag.DEFAULT_ACTION},
                     execute=lambda ctx: (

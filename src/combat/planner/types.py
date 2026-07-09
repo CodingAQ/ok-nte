@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Callable, Iterable
+from typing import TYPE_CHECKING, Callable, Generator, Iterable
 
 if TYPE_CHECKING:
     from src.char.BaseChar import BaseChar
@@ -51,13 +51,6 @@ class Planner:
         FIELD_TIME = "field_time"
         LEGACY_COMBO = "legacy_combo"
         COORDINATION_FINISHER = "coordination_finisher"
-
-    class EntryChainPolicy(StrEnum):
-        """动作执行后，本次入场是否继续尝试后续动作。"""
-
-        CONTINUE = "continue"
-        STOP_ON_SUCCESS = "stop_on_success"
-        STOP = "stop"
 
     class ActionSlot(StrEnum):
         """游戏动作槽位。
@@ -112,7 +105,6 @@ class Planner:
 
 Role = Planner.Role
 ActionTag = Planner.ActionTag
-EntryChainPolicy = Planner.EntryChainPolicy
 ActionSlot = Planner.ActionSlot
 FieldPreference = Planner.FieldPreference
 FieldClaimLevel = Planner.FieldClaimLevel
@@ -505,9 +497,16 @@ class ActionResult:
     slot: ActionSlot | None = None
     reason: str = ""
 
+    def __bool__(self) -> bool:
+        """让 entry flow 可以用普通 Python truthiness 判断动作是否成功。"""
+
+        return self.success
+
 
 ActionExecutor = Callable[["CombatContext"], ActionResult | bool | None]
 ActionPredicate = Callable[["CombatContext"], bool]
+EntryFlow = Generator["ActionIntent", ActionResult, None]
+EntryFactory = Callable[[], EntryFlow]
 
 
 @dataclass(slots=True)
@@ -521,7 +520,6 @@ class ActionIntent:
     reason: str = ""
     can_execute: ActionPredicate | None = None
     priority_ready: ActionPredicate | None = None
-    chain_policy: EntryChainPolicy = EntryChainPolicy.CONTINUE
 
     def identity_key(self) -> str:
         """返回 planner 内部使用的动作身份。"""
@@ -582,6 +580,24 @@ class ActionIntent:
                 slot=self.slot,
             )
         return action_result
+
+
+@dataclass(slots=True)
+class CombatPlan:
+    """角色一次 planner 查询的完整计划。
+
+    `actions` 是 planner 可见的动作目录，用于切人评分、route、request 和 reservation。
+    `claims` 是入场诉求。`entry` 是普通入场后的 Python generator 流程；未提供时
+    planner 会按 `actions` 声明顺序执行。
+    """
+
+    actions: Iterable[ActionIntent]
+    claims: Iterable[FieldClaim] = field(default_factory=tuple)
+    entry: EntryFactory | None = None
+
+    def __post_init__(self) -> None:
+        self.actions = list(self.actions)
+        self.claims = list(self.claims)
 
 
 CombatIntent = ActionIntent | FieldClaim
