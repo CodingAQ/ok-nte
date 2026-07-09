@@ -432,31 +432,23 @@ class CharManagerTab(CustomTab):
         if not zip_path.is_file():
             raise ValueError("文件不存在")
 
-        def norm(name: str) -> str:
-            return name.replace("\\", "/").lstrip("/")
-
         with zipfile.ZipFile(zip_path, "r") as zipf:
-            infos = [i for i in zipf.infolist() if not i.is_dir()]
             custom_infos = []
-            has_db = False
-            db_info = None
-            for info in infos:
-                name = norm(info.filename)
-                if not name.startswith("custom_chars/"):
-                    continue
+            for info in (i for i in zipf.infolist() if not i.is_dir()):
+                name = info.filename.replace("\\", "/").lstrip("/")
+                if name.startswith("custom_chars/"):
+                    custom_infos.append((info, [p for p in name.split("/") if p]))
 
-                parts = [p for p in name.split("/") if p]
-                if not parts or parts[0] != "custom_chars":
-                    raise ValueError("不支持的导入格式")
-                if any(p == ".." or ":" in p for p in parts):
-                    raise ValueError("不安全的压缩包路径")
+            if any(not parts or parts[0] != "custom_chars" for _, parts in custom_infos):
+                raise ValueError("不支持的导入格式")
+            if any(p == ".." or ":" in p for _, parts in custom_infos for p in parts):
+                raise ValueError("不安全的压缩包路径")
 
-                if "/".join(parts) == "custom_chars/db.json":
-                    has_db = True
-                    db_info = info
-                custom_infos.append((info, parts))
-
-            if not has_db:
+            db_info = next(
+                (info for info, parts in custom_infos if "/".join(parts) == "custom_chars/db.json"),
+                None,
+            )
+            if db_info is None:
                 raise ValueError("仅支持导入导出数据的 zip（缺少 custom_chars/db.json）")
             if not custom_infos:
                 raise ValueError("压缩包内没有可导入的数据")
