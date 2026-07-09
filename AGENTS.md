@@ -8,16 +8,12 @@
 
 `ok-nte` 是一款基于 `ok-script` 的 Windows 桌面自动化工具，面向《异环》提供 UI 图像识别、OCR、OpenVINO 目标检测、WASAPI 进程音频捕获、模拟键鼠、自动战斗、日常任务、小游戏和角色中心等能力。
 
-项目默认原则是通过用户可见的界面和系统输出信号与游戏交互：截图、OCR、图像特征、声音反馈和普通输入事件。不要把项目扩展成读内存、Hook、注入、修改客户端、改包、发包或重放封包的工具。
+项目默认原则是通过用户可见的界面和系统输出信号与游戏交互：截图、OCR、图像特征、声音反馈和普通输入事件。
 
 ## 不可破坏的约束
 
-- 不修改游戏文件、游戏进程内存、游戏代码或客户端资源。
-- 不新增 DLL 注入、Hook、内存扫描、改包、发包、重放包、绕过反作弊或隐藏进程/驱动的能力。
-- 不默认引入抓包、协议解析或网络流量分析。若用户明确要求研究抓包，只能作为实验性诊断功能讨论或实现，并必须保持被动读取、不发送数据、默认关闭和清晰风险提示。
 - 不提交用户本地日志、截图、抓包样本、账号信息、个人路径、配置密钥或任何可能识别用户环境的数据。
 - 不改变 README 与 `src/config.py` 中“仅通过 UI/系统输出交互”的安全边界，除非用户明确要求并同步更新风险说明。
-- 不无理由提高 Python 版本、替换 `ok-script` 架构、升级大型运行时依赖或改变打包/更新流程。
 - 不把长耗时模型加载、音频循环、路径循环、OCR 大扫描或文件 I/O 放进 UI 渲染热路径。
 - 不为了小范围功能引入大型框架、服务端组件或异步运行时。
 
@@ -49,16 +45,14 @@
 推荐验证命令：
 
 ```powershell
-$py = if (Test-Path .\.venv\Scripts\python.exe) { ".\.venv\Scripts\python.exe" } else { "python" }
-& $py -m unittest discover -s tests -p "*.py"
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "*.py"
 ```
 
 针对单个测试文件：
 
 ```powershell
-$py = if (Test-Path .\.venv\Scripts\python.exe) { ".\.venv\Scripts\python.exe" } else { "python" }
-& $py -m unittest tests.TestCombatPlanner
-& $py -m unittest tests.test_sound_trigger_capture
+.\.venv\Scripts\python.exe -m unittest tests.TestCombatPlanner
+.\.venv\Scripts\python.exe -m unittest tests.test_sound_trigger_capture
 ```
 
 仓库提供的逐文件测试脚本：
@@ -70,8 +64,7 @@ $py = if (Test-Path .\.venv\Scripts\python.exe) { ".\.venv\Scripts\python.exe" }
 语法快速检查：
 
 ```powershell
-$py = if (Test-Path .\.venv\Scripts\python.exe) { ".\.venv\Scripts\python.exe" } else { "python" }
-& $py -m py_compile path\to\file.py
+.\.venv\Scripts\python.exe -m py_compile path\to\file.py
 ```
 
 如果环境中安装了 ruff，可运行：
@@ -82,13 +75,13 @@ ruff check .
 
 不要假设所有开发依赖都已安装；如果无法运行某个命令，在最终回复中说明原因。
 
-Python 命令应优先使用仓库虚拟环境。PowerShell 中先解析解释器：
+Python 命令应优先使用仓库虚拟环境。Codex 在本仓库中应直接调用 `.venv` 解释器，避免通过 `$py` 和 `&` 包装 Python 命令；该写法在沙箱下可能导致 `py_compile` 写入 `__pycache__` 时出现权限错误。
 
 ```powershell
-$py = if (Test-Path .\.venv\Scripts\python.exe) { ".\.venv\Scripts\python.exe" } else { "python" }
+.\.venv\Scripts\python.exe -m py_compile path\to\file.py
 ```
 
-存在 `.venv` 时不要直接调用全局 `python`、`pip` 或 `pytest`；使用 `& $py`、`& $py -m pip`、`& $py -m pytest`。
+存在 `.venv` 时不要直接调用全局 `python`、`pip` 或 `pytest`；使用 `.\.venv\Scripts\python.exe`、`.\.venv\Scripts\python.exe -m pip`、`.\.venv\Scripts\python.exe -m pytest`。
 
 ## Python 规范
 
@@ -96,6 +89,7 @@ $py = if (Test-Path .\.venv\Scripts\python.exe) { ".\.venv\Scripts\python.exe" }
 - 遵循 `pyproject.toml` 中的 ruff 设置：行宽 100、双引号、导入排序。
 - 优先使用项目已有 helper、mixin 和 ok-script API，不要为局部需求绕过框架。
 - 保持类型表达清晰。复杂数据优先使用 `dataclass`、枚举或明确结构，而不是松散字典。
+- 构造函数应追求简洁、优雅和低复杂度；但不要仅为降低单函数长度而把本可直读的初始化逻辑拆成多个私有函数。
 - 生产代码避免裸 `except` 和静默失败；捕获异常时记录足够上下文，并保持任务可恢复或明确中止。
 - 不在循环中频繁创建重模型、重模板或大数组；需要缓存时使用已有缓存模式和清理路径。
 - 线程、事件和后台循环必须有停止条件，避免退出后仍持有音频、输入或模型资源。
@@ -139,7 +133,6 @@ $py = if (Test-Path .\.venv\Scripts\python.exe) { ".\.venv\Scripts\python.exe" }
 ## UI 与 i18n
 
 - UI 文案保持简洁，配置项要有默认值和 `config_description`。
-- 新增用户可见任务或配置项时，检查 `i18n/*/LC_MESSAGES/ok.po` 是否需要同步。
 - 不要在 UI 线程执行长耗时 OCR、模型推理、音频捕获或文件扫描。
 - UI 结构尽量复用现有 qfluentwidgets/ok-script 模式，不引入新的 UI 框架。
 - 对角色中心、自定义出招表、特征管理等数据编辑 UI，保存前做校验，保持旧数据可读。
@@ -162,6 +155,7 @@ $py = if (Test-Path .\.venv\Scripts\python.exe) { ".\.venv\Scripts\python.exe" }
 ## 测试策略
 
 - planner、纯逻辑解析、数据迁移、配置转换、声音捕获辅助函数应优先写 unittest。
+- 测试应服务风险控制，不要为普通 UI 拼装、简单构造函数、直观胶水代码或低风险改动机械增加测试。
 - 图像识别或 UI 自动化难以完全单测时，至少隔离纯计算部分，并在最终回复说明人工验证范围。
 - 修复 bug 时尽量添加回归测试，尤其是角色协作、战斗脱出、声音触发重启、OCR 解析和自定义角色数据。
 - 不依赖真实游戏窗口的测试应保持可在 CI/普通开发机上运行。
