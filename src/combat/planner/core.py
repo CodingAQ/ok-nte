@@ -146,7 +146,7 @@ class CombatPlanner:
         - `priority_ready` 只用于评分；`can_execute` 是硬限制。
     """
 
-    MAX_ACTIONS_PER_ENTRY = 3
+    MAX_ACTIONS_PER_ENTRY = 5
     LOG_THROTTLE_INTERVAL = 0.5
 
     def __init__(self, task: "BaseCombatTask") -> None:
