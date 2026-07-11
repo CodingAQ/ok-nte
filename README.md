@@ -148,6 +148,7 @@ or consequences are not associated with this software.
 >     * **游戏亮度**：使用游戏 **默认亮度**。
 >     * **UI 设置**：**禁用** 所有会导致 UI 与默认不同的设置。
 >     * **显卡滤镜**：**关闭** 所有显卡滤镜和锐化效果（如 NVIDIA Freestyle, AMD FidelityFX）。
+>     * **显卡色彩 (AMD/A卡用户)**：显示色彩需与默认 NVIDIA/N卡保持一致，以避免图像识别偏差。若因此导致识别失败，可尝试开启 Windows 系统设置中的 **“自动管理应用的颜色”** (Auto Color Management)。
 > * **分辨率**
 >     * 推荐使用 **1920x1080** 或以上 **16:9** 的主流分辨率。
 > * **按键设置**
