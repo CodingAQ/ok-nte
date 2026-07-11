@@ -536,7 +536,11 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
         scroll_per_item = 6
         i = 0
 
-        for furniture in [Labels.anomaly_fluff, Labels.anomaly_wooden_crate]:
+        for furniture in [
+            Labels.anomaly_fluff,
+            Labels.anomaly_hamster_ball,
+            Labels.anomaly_wooden_crate,
+        ]:
             open_house_panel()
 
             # 寻找目标家具

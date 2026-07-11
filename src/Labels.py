@@ -3,6 +3,7 @@ from enum import Enum
 
 class Labels(str, Enum):
     anomaly_fluff = 'anomaly_fluff'
+    anomaly_hamster_ball = 'anomaly_hamster_ball'
     anomaly_wooden_crate = 'anomaly_wooden_crate'
     auto_play = 'auto_play'
     bonfire_teleport = 'bonfire_teleport'

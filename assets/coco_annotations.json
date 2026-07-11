@@ -1050,8 +1050,8 @@
             "image_id": 32,
             "category_id": 66,
             "bbox": [
-                178,
-                580,
+                179,
+                844,
                 52,
                 62
             ],
@@ -1095,6 +1095,19 @@
                 35
             ],
             "area": 1330,
+            "iscrowd": 0
+        },
+        {
+            "id": 70,
+            "image_id": 32,
+            "category_id": 71,
+            "bbox": [
+                1560,
+                950,
+                147,
+                128
+            ],
+            "area": 18816,
             "iscrowd": 0
         }
     ],
@@ -1442,6 +1455,11 @@
         {
             "id": 69,
             "name": "map_zoom_in",
+            "supercategory": ""
+        },
+        {
+            "id": 71,
+            "name": "anomaly_hamster_ball",
             "supercategory": ""
         }
     ]
