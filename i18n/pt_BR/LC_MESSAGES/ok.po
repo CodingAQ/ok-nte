@@ -836,3 +836,12 @@ msgstr "Duração máxima do combate"
 
 msgid "战斗时不切人"
 msgstr "Não trocar de personagem durante o combate"
+
+msgid "主界面检测失败。建议操作: \n1. 关闭显卡滤镜与锐化功能；\n2. 尝试开启 Windows “自动管理应用的颜色”设置。"
+msgstr "Falha ao detectar a interface principal. Ações sugeridas: \n1. Desative os filtros e a nitidez da placa de vídeo;\n2. Tente ativar a configuração do Windows \"Gerenciar cores automaticamente para aplicativos\"."
+
+msgid "大世界检测失败: 请检查游戏内 UI 透明度是否已设置为 1.0。"
+msgstr "Falha ao detectar o mundo aberto: verifique se a opacidade da interface do usuário no jogo foi definida como 1.0."
+
+msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用。"
+msgstr "A CPU atual não suporta AVX2, portanto a inferência de CPU do OpenVINO 2026 não pode ser executada; a detecção de alvos para combate automático ficará indisponível."
