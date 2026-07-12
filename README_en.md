@@ -131,7 +131,8 @@ To ensure the program runs stably, please carefully read the following configura
 >
 > *   **Graphics Settings**
 >     *   **Game Brightness**: Use the **default** in-game brightness.
->     *   **UI Settings**: **Disable** all settings that cause the UI to differ from the default.
+>     *   **UI Settings**: **Disable** all settings that cause the UI to differ from the default
+>         *   **UI Opacity** must be set to **1.0**.
 >     *   **Graphics Filters**: **Disable** all graphics card filters and sharpening effects (e.g., NVIDIA Freestyle, AMD FidelityFX).
 >     *   **GPU Color (AMD users)**: Display colors need to match standard NVIDIA defaults to avoid image recognition issues. If color discrepancies cause failures, try enabling **"Automatically manage color for apps"** in Windows system settings.
 > *   **Resolution**
