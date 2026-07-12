@@ -3,6 +3,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -53,6 +54,7 @@ class TestYOLO26OpenVINOAsyncDetector(unittest.TestCase):
     def _detector(self, requests):
         detector = YOLO26OpenVINOAsyncDetector.__new__(YOLO26OpenVINOAsyncDetector)
         detector.num_requests = 1
+        detector._openvino_available = True
         detector._state_lock = threading.RLock()
         detector._retired_infer_requests = []
         detector._active_request_jobs = {}
@@ -76,6 +78,20 @@ class TestYOLO26OpenVINOAsyncDetector(unittest.TestCase):
 
         detector._create_infer_request = create_request
         return detector
+
+    @patch.object(YOLO26OpenVINOAsyncDetector, "_supports_avx2", return_value=False)
+    @patch("src.YOLO26OpenVINOAsyncDetector.communicate")
+    def test_detector_notifies_and_returns_false_without_avx2(self, communicate, _supports_avx2):
+        detector = YOLO26OpenVINOAsyncDetector("unused.xml")
+        image = np.zeros((20, 20, 3), dtype=np.uint8)
+
+        self.assertFalse(detector._openvino_available)
+        self.assertIs(detector.detect(image), False)
+        self.assertIs(detector.detect_sync(image), False)
+        self.assertIn("unavailable", detector.debug_state())
+        detector.wait()
+        detector.clear_cache()
+        communicate.notification.emit.assert_called_once()
 
     def test_detect_sync_cancels_busy_request_and_waits_for_latest_frame(self):
         old_request = FakeInferRequest()

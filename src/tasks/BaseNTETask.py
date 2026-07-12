@@ -565,7 +565,14 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
             raise_if_not_found=False,
             settle_time=0.25,
         ):
-            raise Exception("Please start in game world and in team!")
+            msg = self.tr(
+                "主界面检测失败。建议操作: \n1. 关闭显卡滤镜与锐化功能；\n"
+                "2. 尝试开启 Windows “自动管理应用的颜色”设置。"
+            )
+            if in_world:
+                msg += "\n" + self.tr("大世界检测失败: 请检查游戏内 UI 透明度是否已设置为 1.0。")
+            self.log_error(msg, notify=True)
+            raise CannotFindException(msg)
         self.sleep(0.5)
         self.info_set("current task", None)
 

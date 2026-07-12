@@ -1,21 +1,36 @@
+import ctypes
 import threading
 import time
 
 import numpy as np
-from ok import Box, Logger
-from openvino import Core, Layout, PartialShape, Type
-from openvino.preprocess import ColorFormat, PrePostProcessor, ResizeAlgorithm
+from ok import Box, Logger, og
 
 logger = Logger.get_logger(__name__)
 
 
 class YOLO26OpenVINOAsyncDetector:
+    _PF_AVX2_INSTRUCTIONS_AVAILABLE = 40
     _MAX_ACTIVE_RETIRED_INFER_REQUESTS = 3
     _MAX_RETIRED_INFER_REQUESTS = 10
     _RETIRED_REQUEST_KEEP_SECONDS = 3.0
     _SYNC_WAIT_TIMEOUT = 1.5
 
     def __init__(self, xml_path, num_requests=1):
+        self._openvino_available = self._supports_avx2()
+        if not self._openvino_available:
+            message = og.app.tr(
+                "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；"
+                "自动战斗的目标检测将不可用。"
+            )
+            logger.error(message, notify=True)
+            self.latest_results = False
+            self.latest_image = None
+            self.latency = 0.0
+            return
+
+        from openvino import Core, Layout, PartialShape, Type
+        from openvino.preprocess import ColorFormat, PrePostProcessor, ResizeAlgorithm
+
         self.core = Core()
         model = self.core.read_model(model=xml_path)
 
@@ -62,6 +77,16 @@ class YOLO26OpenVINOAsyncDetector:
         self._force_next_submit = False
         self.infer_request = self._create_infer_request()
 
+    @classmethod
+    def _supports_avx2(cls) -> bool:
+        """Return whether Windows reports AVX2 support for the current processor."""
+
+        try:
+            is_feature_available = ctypes.windll.kernel32.IsProcessorFeaturePresent
+        except AttributeError:
+            return False
+        return bool(is_feature_available(cls._PF_AVX2_INSTRUCTIONS_AVAILABLE))
+
     def _create_infer_request(self):
         return self.compiled_model.create_infer_request()
 
@@ -97,9 +122,7 @@ class YOLO26OpenVINOAsyncDetector:
     def _mark_request_job_started(self, infer_request):
         with self._state_lock:
             request_id = id(infer_request)
-            self._active_request_jobs[request_id] = (
-                self._active_request_jobs.get(request_id, 0) + 1
-            )
+            self._active_request_jobs[request_id] = self._active_request_jobs.get(request_id, 0) + 1
             self._active_requests[request_id] = infer_request
             return request_id
 
@@ -222,6 +245,8 @@ class YOLO26OpenVINOAsyncDetector:
                 done_event.set()
 
     def debug_state(self):
+        if not self._openvino_available:
+            return "openvino(unavailable: CPU does not support AVX2)"
         with self._state_lock:
             active_jobs = sum(self._active_request_jobs.values())
             active_retired = self._get_active_retired_count()
@@ -257,6 +282,9 @@ class YOLO26OpenVINOAsyncDetector:
             [(x1, y1, x2, y2), ...]。屏蔽会应用到推理画布，不修改原图。
         :return: list[Box] (返回的是上一帧或最近一次完成的结果)
         """
+
+        if not self._openvino_available:
+            return False, False
 
         submitted = False
         self._cleanup_retired_infer_requests()
@@ -373,6 +401,8 @@ class YOLO26OpenVINOAsyncDetector:
 
     def wait(self, include_retired=False):
         """强制阻塞主线程，默认只等待当前推理 request 完成。"""
+        if not self._openvino_available:
+            return
         with self._state_lock:
             requests = [self.infer_request]
             if include_retired:
@@ -409,6 +439,8 @@ class YOLO26OpenVINOAsyncDetector:
 
     def detect_sync(self, image, box=None, threshold=0.5, label="target", mask_regions=None):
         """同步检测版本：发起请求后立即堵住，直到拿到本次请求的结果。"""
+        if not self._openvino_available:
+            return False
         done_event = threading.Event()
         result_holder = {"results": None}
         # 同步调用通常用于确认当前帧状态。若等待旧 async 请求，回来的可能是旧帧、
@@ -441,8 +473,7 @@ class YOLO26OpenVINOAsyncDetector:
                 self.job_id += 1
                 if (
                     self._request_has_active_jobs(self.infer_request)
-                    and self._get_active_retired_count()
-                    < self._MAX_ACTIVE_RETIRED_INFER_REQUESTS
+                    and self._get_active_retired_count() < self._MAX_ACTIVE_RETIRED_INFER_REQUESTS
                 ):
                     self._retire_request(self.infer_request, cancel=True)
                     self.infer_request = self._create_infer_request()
@@ -451,6 +482,8 @@ class YOLO26OpenVINOAsyncDetector:
 
     def clear_cache(self):
         """清空缓存"""
+        if not self._openvino_available:
+            return
         with self._state_lock:
             self.latest_results = None
             self.latest_image = None
@@ -458,8 +491,7 @@ class YOLO26OpenVINOAsyncDetector:
             self._force_next_submit = True
             if (
                 self._request_has_active_jobs(self.infer_request)
-                and self._get_active_retired_count()
-                < self._MAX_ACTIVE_RETIRED_INFER_REQUESTS
+                and self._get_active_retired_count() < self._MAX_ACTIVE_RETIRED_INFER_REQUESTS
             ):
                 self._retire_request(self.infer_request, cancel=True)
                 self.infer_request = self._create_infer_request()
