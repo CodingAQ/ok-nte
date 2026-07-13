@@ -168,8 +168,9 @@ class CombatCheck(BaseNTETask):
                     return True
                 if turn:
                     self.send_key("a", down_time=0.1)
+                    self.sleep(0.3)
                     self.middle_click()
-                    self.sleep(0.7)
+                    self.sleep(0.4)
                 else:
                     self.middle_click()
                     self.sleep(0.4)
