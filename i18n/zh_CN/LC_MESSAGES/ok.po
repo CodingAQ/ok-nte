@@ -1056,3 +1056,6 @@ msgstr ""
 
 msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用。"
 msgstr ""
+
+msgid "战斗后等待至时长上限"
+msgstr ""

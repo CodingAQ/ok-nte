@@ -1067,3 +1067,6 @@ msgstr "Error al detectar el mundo abierto: compruebe si la opacidad de la inter
 
 msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用。"
 msgstr "La CPU actual no admite AVX2, por lo que no se puede ejecutar la inferencia de CPU de OpenVINO 2026; la detección de objetivos para el combate automático no estará disponible."
+
+msgid "战斗后等待至时长上限"
+msgstr "Esperar hasta la duración máxima después del combate"

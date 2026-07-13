@@ -1067,3 +1067,6 @@ msgstr "大世界檢測失敗: 請檢查遊戲內 UI 透明度是否已設置為
 
 msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用。"
 msgstr "目前 CPU 不支援 AVX2，無法執行 OpenVINO 2026 CPU 推理；自動戰鬥的目標檢測將不可用。"
+
+msgid "战斗后等待至时长上限"
+msgstr "戰鬥後等待至時長上限"

@@ -1067,3 +1067,6 @@ msgstr "Overworld detection failed: Please check if the in-game UI opacity has b
 
 msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用。"
 msgstr "The current CPU does not support AVX2, so OpenVINO 2026 CPU inference cannot be run; target detection for auto-combat will be unavailable."
+
+msgid "战斗后等待至时长上限"
+msgstr "Wait until max duration after combat"
