@@ -82,7 +82,7 @@ class SkipDialogTask(TriggerTask, BaseNTETask): # type: ignore
         return self.find_one(Labels.message_dialog, vertical_variance=0.2, horizontal_variance=0.01)
 
     def skip_confirm(self):
-        box = self.box_of_screen(0.671, 0.594, 0.733, 0.670)
+        box = self.box_of_screen(0.659, 0.559, 0.733, 0.670)
         if skip_button := self.find_confirm(box, threshold=0.8):
             # sleep 0.2 to stable click skip button
             now = time.time()
