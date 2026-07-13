@@ -202,7 +202,9 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
         self.ensure_teleport(lambda: self.teleport_to_top_bonfire(box))
 
     def ensure_teleport(self, fun):
+        origin_fun = None
         if self.team_dead:
+            origin_fun = fun
             fun = self.teleport_on_spot
         switch = False
         while True:
@@ -213,6 +215,8 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
             key = "w" if switch else "s"
             self.send_key(key, down_time=3)
             switch = not switch
+            if origin_fun:
+                fun = origin_fun
 
     def deside_combat_action(self):
         def action(*args, **kwargs):
