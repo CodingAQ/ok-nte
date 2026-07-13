@@ -1,5 +1,6 @@
 import threading
 import time
+from collections import deque
 from concurrent.futures import CancelledError
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -77,6 +78,7 @@ class CombatCheck(BaseNTETask):
         self.switch_char_time_out = 5
         self.combat_end_condition = None
         self.target_enemy_error_notified = False
+        self.freeze_durations = deque()
         self.cds = {}
         self.find_lv_future = None
         self._lv_async = None
@@ -116,6 +118,7 @@ class CombatCheck(BaseNTETask):
         return False
 
     def do_reset_to_false(self):
+        self.freeze_durations.clear()
         self.cds = {}
         self._in_combat = False
         self._boss_fight = False

@@ -1,5 +1,6 @@
 import re
 import time
+from bisect import bisect_right
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 
@@ -55,7 +56,7 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
     """基础战斗任务类，封装了游戏"鸣潮"中角色自动化操作的通用逻辑。"""
 
     hot_key_verified = False  # 热键是否已验证
-    freeze_durations = []  # 记录冻结/卡肉的持续时间
+    FREEZE_DURATION_RETENTION_SECONDS = 20 * 60
 
     element_reactions = (
         "创生",
@@ -229,10 +230,22 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
             duration = time.time() - start
         if start > 0 and duration > freeze_time:
             current_time = time.time()
-            self.freeze_durations = [
-                item for item in self.freeze_durations if item[0] > current_time - 60
-            ]
-            self.freeze_durations.append((start, duration, freeze_time))
+            while (
+                self.freeze_durations
+                and self.freeze_durations[0][0]
+                <= current_time - self.FREEZE_DURATION_RETENTION_SECONDS
+            ):
+                self.freeze_durations.popleft()
+            freeze_duration = (start, duration, freeze_time)
+            if not self.freeze_durations or start >= self.freeze_durations[-1][0]:
+                self.freeze_durations.append(freeze_duration)
+                return
+
+            records = list(self.freeze_durations)
+            insert_at = bisect_right(records, start, key=lambda item: item[0])
+            records.insert(insert_at, freeze_duration)
+            self.freeze_durations.clear()
+            self.freeze_durations.extend(records)
 
     def time_elapsed_accounting_for_freeze(self, start, intro_motion_freeze=False):
         """计算扣除冻结时间后经过的时间。
@@ -247,21 +260,19 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
         if start < 0:
             return 10000
         to_minus = 0
-        for freeze_start, duration, freeze_time in self.freeze_durations:
-            if start < freeze_start:
-                if intro_motion_freeze:
-                    if freeze_time == -100:
-                        freeze_time = 0
-                elif freeze_time == -100:
-                    continue
-                if duration < freeze_time:
-                    duration = freeze_time
-                to_minus += duration
+        for freeze_start, duration, freeze_time in reversed(self.freeze_durations):
+            if freeze_start <= start:
+                break
+            if intro_motion_freeze:
+                if freeze_time == -100:
+                    freeze_time = 0
+            elif freeze_time == -100:
+                continue
+            if duration < freeze_time:
+                duration = freeze_time
+            to_minus += duration
         if to_minus != 0:
-            self.run_with_interval(
-                lambda: self.log_debug(f"time_elapsed_accounting_for_freeze to_minus {to_minus}"),
-                0.5,
-            )
+            self.log_debug_gated(f"time_elapsed_accounting_for_freeze to_minus {to_minus}")
         return time.time() - start - to_minus
 
     def refresh_cd(self):
