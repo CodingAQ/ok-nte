@@ -81,7 +81,12 @@ class TestYOLO26OpenVINOAsyncDetector(unittest.TestCase):
 
     @patch.object(YOLO26OpenVINOAsyncDetector, "_supports_avx2", return_value=False)
     @patch("src.YOLO26OpenVINOAsyncDetector.communicate")
-    def test_detector_notifies_and_returns_false_without_avx2(self, communicate, _supports_avx2):
+    @patch("src.YOLO26OpenVINOAsyncDetector.og.app")
+    def test_detector_notifies_and_returns_false_without_avx2(
+        self, app, communicate, _supports_avx2
+    ):
+        app.tr.side_effect = lambda message: message
+
         detector = YOLO26OpenVINOAsyncDetector("unused.xml")
         image = np.zeros((20, 20, 3), dtype=np.uint8)
 
