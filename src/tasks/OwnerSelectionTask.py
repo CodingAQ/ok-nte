@@ -3,8 +3,8 @@ import time
 from ok import TaskDisabledException, og
 from qfluentwidgets import FluentIcon
 
-from src.tasks.BaseNTETask import BaseNTETask
 from src.tasks.NTEOneTimeTask import NTEOneTimeTask
+from src.tasks.RecordTask import RecordTask
 from src.ui.util import show_dialog_and_wait, tr_fmt
 
 # noqa: E501
@@ -14,7 +14,10 @@ INST = (
     "使用方法：\n"
     "1. 确保您已配置好游戏内的挂机流派。\n"
     "2. 打开店长特供选好你的目标关卡。\n"
-    "3. 点击[开始]"
+    "3. 点击[开始]\n\n"
+    "使用录制功能：\n"
+    "1. 站在咖啡店可进行 F 交互的位置。\n"
+    "2. 启用[使用录制功能]。首次启动需录制目标，点击[开始]后请跟随指示操作。"
 )
 
 EN_INST = (
@@ -23,7 +26,24 @@ EN_INST = (
     "How to use:\n"
     "1. Make sure you have configured your in-game AFK build.\n"
     "2. Open Owner Selection and select your target level.\n"
-    "3. On the first launch, you need to record the target. Click [Start], then follow the prompts."
+    "3. Click [Start].\n\n"
+    "Using the recording feature:\n"
+    "1. Stand at the cafe where the F interaction is available.\n"
+    "2. Enable [Use recording feature]. On first use, click [Start], then follow the prompts to record the target level."
+)
+
+RECORD_INS = (
+    "记录点击目标关卡的操作，分为两个步骤：\n"
+    "1. 使用滚轮滚动至[目标关卡]可见 (若不需要则点击[目标关卡])\n"
+    "2. 点击目标关卡\n\n"
+    "※ 请勿点击[开始营业]"
+)
+
+EN_RECORD_INS = (
+    "Record the actions used to select the target level in two steps:\n"
+    "1. Scroll until [Target Level] is visible (if it already is, click [Target Level]).\n"
+    "2. Click [Target Level]\n\n"
+    "※ Do not click [Start Business]."
 )
 
 ROB_MODE_HINT = (
@@ -33,9 +53,9 @@ ROB_MODE_HINT = (
 )
 
 
-class OwnerSelectionTask(NTEOneTimeTask, BaseNTETask):
+class OwnerSelectionTask(NTEOneTimeTask, RecordTask):
     CONF_ROB = "抢钱流"
-    CONF_CORDS = "记录坐标"
+    CONF_USE_RECORD = "使用录制功能"
 
     REVENUE_CHECK_INTERVAL = 1.0  # OCR 检测营业额间隔（秒）
     CLICK_INTERVAL = 1  # 步骤3点击间隔（秒）
@@ -56,7 +76,28 @@ class OwnerSelectionTask(NTEOneTimeTask, BaseNTETask):
         self.group_name = "都市闲趣"
         self.group_icon = FluentIcon.GAME
         self.add_rounds_config()
-        self.default_config.update({self.CONF_ROB: False})
+        self.default_config.update(
+            {
+                self.CONF_ROB: False,
+                self.CONF_USE_RECORD: False,
+            }
+        )
+        self.config_description.update(
+            {
+                self.CONF_USE_RECORD: "启用后录制并回放选择目标关卡的操作",
+            }
+        )
+        self.config_type.update(
+            {
+                self.CONF_USE_RECORD: {
+                    "sub_configs": {
+                        True: [
+                            self.CONF_RESET_RECORD,
+                        ]
+                    },
+                },
+            }
+        )
 
     def run(self):
         super().run()
@@ -68,6 +109,10 @@ class OwnerSelectionTask(NTEOneTimeTask, BaseNTETask):
             self.screenshot("shop_special_unexpected_exception")
             self.log_error("OwnerSelection error", e)
             raise
+
+    def show_notification(self):
+        if self.config.get(self.CONF_USE_RECORD, False):
+            super().show_notification()
 
     def do_run(self):
         if self.config.get(self.CONF_ROB):
@@ -137,6 +182,10 @@ class OwnerSelectionTask(NTEOneTimeTask, BaseNTETask):
             settle_time=0.25,
         )
         self.sleep(1)
+        if self.config.get(self.CONF_USE_RECORD, False):
+            record_instruction = RECORD_INS if self.is_chinese() else EN_RECORD_INS
+            self.record_or_replay_operations(2, instruction_text=record_instruction)
+            self.sleep(1)
         # 步骤2：点击开始玩法
         self.info_set("当前阶段", "开始玩法")
         self.wait_click_confirm(range=(0.922, 0.889, 0.969, 0.972))
