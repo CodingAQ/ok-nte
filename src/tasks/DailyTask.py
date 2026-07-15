@@ -31,7 +31,7 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
     CONF_AUTO_CYCLE_SUB_TASK = "自动循环项目"
     CONF_CINEMA_DATE = "影院约会"
     CONF_FURNITURE = "异象家具"
-    CONF_GIFT = "运行羁遇赠礼"
+    CONF_GIFT = "羁遇赠礼"
 
     CINEMA_DATE_TARGET = "约会目标"
     DAILY_STAMINA_TARGET = "目标消耗体力"
