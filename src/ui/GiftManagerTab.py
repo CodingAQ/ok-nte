@@ -345,6 +345,9 @@ class GiftManagerTab(CustomTab):
             priorities = {slot: index + 1 for index, slot in enumerate(profile["selected_slots"])}
             blocked_slots = set(profile.get("blocked_slots", []))
             first_x, first_y, first_to_x, first_to_y = GiftTask.GIFT_FIRST_RATIO
+            expand_ratio = 0.016
+            first_y -= expand_ratio
+            first_to_y += expand_ratio
             box_width = first_to_x - first_x
             box_height = first_to_y - first_y
             for index in range(GiftTask.GIFT_ROWS * GiftTask.GIFT_COLUMNS):
