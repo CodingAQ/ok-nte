@@ -8,12 +8,14 @@ from src.tasks.NTEOneTimeTask import NTEOneTimeTask
 
 
 class AnomalyTask(NTEOneTimeTask, BaseCombatTask):
+    NAME = "异象界域"
     # --- 配置项键名 ---
     CONF_TASK_TYPE = "任务类型"
     CONF_EXP_TARGET = "具体奖励目标"
     CONF_ABILITY_ID = "异能材料序号"
     CONF_ARC_ID = "弧盘材料序号"
     CONF_CONSOLE_ID = "空幕序号"
+    CONF_AUTO_CYCLE_SUB_TASK = "自动循环项目"
 
     ABILITY_IDX_RANGE = (1, 5)
     ARC_IDX_RANGE = (1, 5)
@@ -35,26 +37,27 @@ class AnomalyTask(NTEOneTimeTask, BaseCombatTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = "异象界域"
+        self.name = self.NAME
         self.description = "自动进行异象界域任务"
         self.icon = FluentIcon.FLAG
         self._outer_config = None
         self.setup_config(self)
 
     @classmethod
-    def setup_config(cls, instance: "BaseNTETask"):
+    def setup_config(cls, instance: "BaseNTETask", setup_cycle=False):
         """
         初始化配置。支持传入外部实例（如 DailyTask）来同步配置项。
         """
-        instance.default_config.update(
-            {
-                cls.CONF_TASK_TYPE: cls.TASK_EXP_COIN,
-                cls.CONF_EXP_TARGET: cls.EXP_CHAR,
-                cls.CONF_ABILITY_ID: 1,
-                cls.CONF_ARC_ID: 1,
-                cls.CONF_CONSOLE_ID: 1,
-            }
-        )
+        config_updates = {
+            cls.CONF_TASK_TYPE: cls.TASK_EXP_COIN,
+            cls.CONF_EXP_TARGET: cls.EXP_CHAR,
+            cls.CONF_ABILITY_ID: 1,
+            cls.CONF_ARC_ID: 1,
+            cls.CONF_CONSOLE_ID: 1,
+        }
+        if setup_cycle:
+            config_updates[cls.CONF_AUTO_CYCLE_SUB_TASK] = False
+        instance.default_config.update(config_updates)
 
         instance.config_type.update(
             {
@@ -80,15 +83,16 @@ class AnomalyTask(NTEOneTimeTask, BaseCombatTask):
             }
         )
         fmt = og.app.tr("选择列表中的第几个项目 ({}-{})")
-        instance.config_description.update(
-            {
-                cls.CONF_TASK_TYPE: "选择要进行的任务类型",
-                cls.CONF_EXP_TARGET: "选择经验与甲硬币任务的具体奖励目标",
-                cls.CONF_ABILITY_ID: fmt.format(*cls.ABILITY_IDX_RANGE),
-                cls.CONF_ARC_ID: fmt.format(*cls.ARC_IDX_RANGE),
-                cls.CONF_CONSOLE_ID: fmt.format(*cls.CONSOLE_IDX_RANGE),
-            }
-        )
+        description_update = {
+            cls.CONF_TASK_TYPE: "选择要进行的任务类型",
+            cls.CONF_EXP_TARGET: "选择经验与甲硬币任务的具体奖励目标",
+            cls.CONF_ABILITY_ID: fmt.format(*cls.ABILITY_IDX_RANGE),
+            cls.CONF_ARC_ID: fmt.format(*cls.ARC_IDX_RANGE),
+            cls.CONF_CONSOLE_ID: fmt.format(*cls.CONSOLE_IDX_RANGE),
+        }
+        if setup_cycle:
+            description_update[cls.CONF_AUTO_CYCLE_SUB_TASK] = "任务完成后自动切换至下一个项目"
+        instance.config_description.update(description_update)
 
     def run(self):
         super().run()
@@ -289,3 +293,21 @@ class AnomalyTask(NTEOneTimeTask, BaseCombatTask):
             r = ranges[task_type]
             return (idx + 1) % (r[1] - r[0] + 1)
         return 0
+
+    def shift_idx(self, task: BaseNTETask):
+        """切换任务索引"""
+        if not task.config.get(self.CONF_AUTO_CYCLE_SUB_TASK):
+            return
+        task_type = task.config.get(self.CONF_TASK_TYPE)
+        next_idx = self.get_next_sub_idx(task.config)
+        if task_type == self.TASK_EXP_COIN:
+            task.config[self.CONF_EXP_TARGET] = self.EXP_ALL[next_idx]  # type: ignore
+        else:
+            conf_key = {
+                self.TASK_ABILITY: self.CONF_ABILITY_ID,
+                self.TASK_ARC: self.CONF_ARC_ID,
+                self.TASK_CONSOLE: self.CONF_CONSOLE_ID,
+            }.get(task_type)
+            if conf_key:
+                task.config[conf_key] = int(next_idx + 1)  # type: ignore
+        task.sync_config()

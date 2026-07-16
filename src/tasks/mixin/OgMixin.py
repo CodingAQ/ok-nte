@@ -1,4 +1,5 @@
 import ctypes
+import inspect
 
 import win32api
 import win32con
@@ -17,8 +18,24 @@ class OgMixin(BaseTask):
             return
 
         for widget in self._iter_config_ui_widgets(main_window):
-            if getattr(widget, "config", None) is config and hasattr(widget, "update_config"):
+            if (
+                getattr(widget, "config", None) is config
+                and hasattr(widget, "update_config")
+                and self.can_be_called_without_args(widget.update_config)
+            ):
                 widget.update_config()
+
+    @staticmethod
+    def can_be_called_without_args(func):
+        """判断一个函数/方法是否可以在不传入任何参数的情况下调用"""
+        sig = inspect.signature(func)
+        for param in sig.parameters.values():
+            if param.default == inspect.Parameter.empty and param.kind not in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
+                return False
+        return True
 
     @staticmethod
     def _get_main_window():
