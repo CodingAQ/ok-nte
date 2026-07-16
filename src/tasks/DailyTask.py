@@ -118,13 +118,19 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
         self.ensure_main()
         self.log_info("开始执行日常任务")
 
+        coffee_mode = [self.COFFEE_MODE_CLAIM_AND_RESTOCK, self.COFFEE_MODE_AUTO]
+
         tasks: List[Tuple[str, bool, Callable]] = [
             (
                 self.CONF_CLAIM_MAIL,
                 self._task_enabled(self.CONF_CLAIM_MAIL, True),
                 self.claim_mail,
             ),
-            *self._coffee_task_entries(),
+            (
+                self.CONF_COFFEE_TASK,
+                self.config.get(self.CONF_COFFEE_TASK) in coffee_mode,
+                self.run_coffee_task,
+            ),
             (
                 self.CONF_COMPLETE_DAILY,
                 self._task_enabled(self.CONF_COMPLETE_DAILY, True),
@@ -168,28 +174,6 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
 
     def _task_enabled(self, key, default):
         return bool(self.config.get(key, default))
-
-    def _coffee_task_entries(self) -> List[Tuple[str, bool, Callable]]:
-        coffee_task = self._coffee_task_entry()
-        return [coffee_task] if coffee_task else []
-
-    def _coffee_task_entry(self) -> Optional[Tuple[str, bool, Callable]]:
-        mode = self._coffee_task_mode()
-        if mode == self.COFFEE_MODE_CLAIM_AND_RESTOCK:
-            return (self.COFFEE_MODE_CLAIM_AND_RESTOCK, True, self.claim_coffee)
-        if mode == self.COFFEE_MODE_AUTO:
-            return (self.COFFEE_MODE_AUTO, True, self.run_coffee_task)
-        return None
-
-    def _coffee_task_mode(self):
-        mode = self.config.get(self.CONF_COFFEE_TASK)
-        if mode in (
-            self.COFFEE_MODE_NONE,
-            self.COFFEE_MODE_CLAIM_AND_RESTOCK,
-            self.COFFEE_MODE_AUTO,
-        ):
-            return mode
-        return self.COFFEE_MODE_NONE
 
     def execute_task(self, key, enabled, func):
         """执行单个子任务。
@@ -290,6 +274,15 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
         self.operate_click(0.1289, 0.9299)
         self.sleep(1)
         return True
+
+    def run_coffee_task(self):
+        mode = self.config.get(self.CONF_COFFEE_TASK)
+        match mode:
+            case self.COFFEE_MODE_AUTO:
+                with self.set_working_task(CoffeeTask) as task:
+                    task.do_run()
+            case self.COFFEE_MODE_CLAIM_AND_RESTOCK:
+                self.claim_coffee()
 
     def complete_daily_activities(self):
         """执行操作完成每日活跃度"""
@@ -498,10 +491,6 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
         self.sleep(1)
         self.operate_click(0.600, 0.656)  # 确认
         return True
-
-    def run_coffee_task(self):
-        task: CoffeeTask = self.get_task_by_class(CoffeeTask)
-        return task.do_run()
 
     def claim_anomaly_furniture(self):
         """领取异象家具奖励"""

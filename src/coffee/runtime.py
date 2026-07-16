@@ -10,6 +10,8 @@ import re
 import time
 from dataclasses import dataclass, field
 
+from ok import TaskDisabledException
+
 
 @dataclass
 class CoffeeFoodOption:
@@ -1297,6 +1299,8 @@ class CoffeeRuntime:
                 x, y = self._product_list_scroll_point(options)
                 self._task_scroll(x, y, count)
                 self._sleep(0.6)
+            except TaskDisabledException:
+                raise
             except Exception as exc:
                 self.actions.append(f"scroll_failed:{exc!r}")
                 break
@@ -1550,6 +1554,8 @@ class CoffeeRuntime:
     def ocr_region(self, region):
         try:
             result = self._task_ocr(*region, frame=self._fresh_frame())
+        except TaskDisabledException:
+            raise
         except Exception:
             return []
         if result is None or isinstance(result, (str, bytes)):
@@ -1567,6 +1573,8 @@ class CoffeeRuntime:
                     frame = getter()
                     if frame is not None:
                         return frame
+            except TaskDisabledException:
+                raise
             except Exception:
                 pass
         return getattr(self.task, "frame", None)
@@ -1622,6 +1630,8 @@ class CoffeeRuntime:
             try:
                 operate(click, block=True)
                 return
+            except TaskDisabledException:
+                raise
             except Exception:
                 pass
         click()
@@ -1684,6 +1694,8 @@ class CoffeeRuntime:
         try:
             self.task.send_key(key, after_sleep=0)
             self._settle_after_key()
+        except TaskDisabledException:
+            raise
         except Exception:
             self._send_foreground_key_raw(key)
             self._settle_after_key()
@@ -1698,6 +1710,8 @@ class CoffeeRuntime:
         try:
             self.task.send_key(key, after_sleep=0)
             self._settle_after_key()
+        except TaskDisabledException:
+            raise
         except Exception:
             return
 
@@ -1708,6 +1722,8 @@ class CoffeeRuntime:
         try:
             sender(key, after_sleep=0)
             return True
+        except TaskDisabledException:
+            raise
         except Exception:
             return False
 
