@@ -274,7 +274,7 @@ class DSDFarmTask(NTEOneTimeTask, BaseCombatTask):
     def open_map(self):
         self.wait_until(
             lambda: self.find_one(Labels.map_zoom_in),
-            time_out=10,
+            time_out=30,
             pre_action=lambda: self.send_key("m", interval=2),
             raise_if_not_found=True,
         )
