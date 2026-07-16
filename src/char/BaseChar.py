@@ -9,13 +9,10 @@ from src.combat.planner import (
     ActionExecutor,
     ActionIntent,
     ActionPredicate,
-    ActionSlot,
-    ActionTag,
     CombatContext,
-    FieldClaim,
-    FieldPreference,
     CombatPlan,
-    Role,
+    FieldClaim,
+    Planner,
     RoleProfile,
     SwitchInGuard,
 )
@@ -170,7 +167,10 @@ class BaseChar:
         return self.task.send_key
 
     def describe_role(self):
-        return RoleProfile(role=Role.SUB_DPS, field_preference=FieldPreference.SUB_DPS)
+        return RoleProfile(
+            role=Planner.Role.SUB_DPS,
+            field_preference=Planner.FieldPreference.SUB_DPS,
+        )
 
     def switch_in_guard(
         self,
@@ -247,7 +247,7 @@ class BaseChar:
     def click_arc_action(
         self,
         name: str | None = None,
-        tags: set[ActionTag] | None = None,
+        tags: set[Planner.ActionTag] | None = None,
         reason: str = "arc action available",
         can_execute=None,
         priority_ready: ActionPredicate | None = None,
@@ -256,7 +256,7 @@ class BaseChar:
 
         Args:
             name: 动作名。默认 `"{角色名}_arc"`，用于日志和高级精确匹配。
-            tags: 动作标签。默认 `{ActionTag.ARC_ACTION}`。
+            tags: 动作标签。默认 `{Planner.ActionTag.ARC_ACTION}`。
             reason: 切人/执行日志理由。
             can_execute: 额外硬限制；slot reservation 由 planner 统一检查。
             priority_ready: 只用于切人评分。默认永远不因为 arc 主动切人。
@@ -266,11 +266,11 @@ class BaseChar:
         """
 
         name = name or f"{self.__str__()}_arc"
-        action_tags = tags or {ActionTag.ARC_ACTION}
+        action_tags = tags or {Planner.ActionTag.ARC_ACTION}
 
         return self.planner_action(
             tags=action_tags,
-            slot=ActionSlot.ARC,
+            slot=Planner.ActionSlot.ARC,
             execute=lambda context: self.click_arc(),
             name=name,
             reason=reason,
@@ -281,7 +281,7 @@ class BaseChar:
     def click_ultimate_action(
         self,
         name: str | None = None,
-        tags: set[ActionTag] | None = None,
+        tags: set[Planner.ActionTag] | None = None,
         reason: str = "ultimate action available",
         can_execute=None,
     ):
@@ -289,23 +289,23 @@ class BaseChar:
 
         Args:
             name: 动作名。默认 `"{角色名}_ultimate"`，用于日志和高级精确匹配。
-            tags: 动作标签。默认 `{ActionTag.ULTIMATE_ACTION}`。
+            tags: 动作标签。默认 `{Planner.ActionTag.ULTIMATE_ACTION}`。
             reason: 切人/执行日志理由。
             can_execute: 额外硬限制；slot reservation 由 planner 统一检查。
 
         Behavior:
-            - 自动设置 `slot=ActionSlot.ULTIMATE`。
+            - 自动设置 `slot=Planner.ActionSlot.ULTIMATE`。
             - `priority_ready` 自动使用 `self.ultimate_available()`。
             - `execute` 调用 `self.click_ultimate()`。
             - planner 会自动用 `slot=ULTIMATE` 检查 reservation。
         """
 
         name = name or f"{self.__str__()}_ultimate"
-        action_tags = tags or {ActionTag.ULTIMATE_ACTION}
+        action_tags = tags or {Planner.ActionTag.ULTIMATE_ACTION}
 
         return self.planner_action(
             tags=action_tags,
-            slot=ActionSlot.ULTIMATE,
+            slot=Planner.ActionSlot.ULTIMATE,
             execute=lambda context: self.click_ultimate(),
             name=name,
             reason=reason,
@@ -316,7 +316,7 @@ class BaseChar:
     def click_skill_action(
         self,
         name: str | None = None,
-        tags: set[ActionTag] | None = None,
+        tags: set[Planner.ActionTag] | None = None,
         reason: str = "skill action available",
         down_time: float = 0.01,
         can_execute=None,
@@ -325,24 +325,24 @@ class BaseChar:
 
         Args:
             name: 动作名。默认 `"{角色名}_skill"`，用于日志和高级精确匹配。
-            tags: 动作标签。默认 `{ActionTag.SKILL_ACTION}`。
+            tags: 动作标签。默认 `{Planner.ActionTag.SKILL_ACTION}`。
             reason: 切人/执行日志理由。
             down_time: 传给 `click_skill(down_time=...)` 的按下时间。
             can_execute: 额外硬限制；slot reservation 由 planner 统一检查。
 
         Behavior:
-            - 自动设置 `slot=ActionSlot.SKILL`。
+            - 自动设置 `slot=Planner.ActionSlot.SKILL`。
             - `priority_ready` 自动使用 `self.skill_available()`。
             - `execute` 调用 `self.click_skill(...)`。
             - planner 会自动用 `slot=SKILL` 检查 reservation。
         """
 
         name = name or f"{self.__str__()}_skill"
-        action_tags = tags or {ActionTag.SKILL_ACTION}
+        action_tags = tags or {Planner.ActionTag.SKILL_ACTION}
 
         return self.planner_action(
             tags=action_tags,
-            slot=ActionSlot.SKILL,
+            slot=Planner.ActionSlot.SKILL,
             execute=lambda context: self.click_skill(down_time=down_time),
             name=name,
             reason=reason,
@@ -352,10 +352,10 @@ class BaseChar:
 
     def planner_action(
         self,
-        tags: set[ActionTag] | ActionTag,
+        tags: set[Planner.ActionTag] | Planner.ActionTag,
         execute: ActionExecutor,
         name: str | None = None,
-        slot: ActionSlot | None = None,
+        slot: Planner.ActionSlot | None = None,
         reason: str = "",
         can_execute: ActionPredicate | None = None,
         priority_ready: ActionPredicate | None = None,
@@ -366,7 +366,7 @@ class BaseChar:
         动作真正执行多久由 `execute` 自己负责；长时间动作应在 `execute` 内完成。
 
         Args:
-            tags: 动作标签集合。推荐写 `{ActionTag.X}`；传单个 tag 时会被包装成 set。
+            tags: 动作标签集合。推荐写 `{Planner.ActionTag.X}`；传单个 tag 时会被包装成 set。
             execute: 接收 `CombatContext` 的执行函数。只有严格返回 True 才算成功；
                 False/None/无 return 都算失败。可手写返回 `ActionResult`。
             name: 高级动作名和日志名。普通动作可以不传。

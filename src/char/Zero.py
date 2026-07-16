@@ -1,5 +1,5 @@
 from src.char.BaseChar import BaseChar
-from src.combat.planner import ActionSlot, CombatContext, FieldPreference, Role, RoleProfile
+from src.combat.planner import CombatContext, Planner, RoleProfile
 
 
 class Zero(BaseChar):
@@ -8,8 +8,8 @@ class Zero(BaseChar):
 
     def describe_role(self):
         return RoleProfile(
-            role=Role.SUB_DPS,
-            field_preference=FieldPreference.SUB_DPS,
+            role=Planner.Role.SUB_DPS,
+            field_preference=Planner.FieldPreference.SUB_DPS,
             max_field_time=1.0,
         )
 
@@ -27,7 +27,7 @@ class Zero(BaseChar):
             or not self.is_cycle_full()
             or (
                 context is not None
-                and context.strict_route_wants_action(self, slot=ActionSlot.SKILL)
+                and context.strict_route_wants_action(self, slot=Planner.ActionSlot.SKILL)
             )
         )
 

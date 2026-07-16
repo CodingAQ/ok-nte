@@ -1,9 +1,7 @@
 from src.char.BaseChar import BaseChar
 from src.combat.planner import (
-    ActionTag,
     CombatContext,
-    FieldPreference,
-    Role,
+    Planner,
     RoleProfile,
 )
 
@@ -14,8 +12,8 @@ class Jiuyuan(BaseChar):
 
     def describe_role(self):
         return RoleProfile(
-            role=Role.SUB_DPS,
-            field_preference=FieldPreference.SUB_DPS,
+            role=Planner.Role.SUB_DPS,
+            field_preference=Planner.FieldPreference.SUB_DPS,
             max_field_time=1.0,
         )
 
@@ -23,7 +21,7 @@ class Jiuyuan(BaseChar):
         ultimate = self.click_ultimate_action()
         skill = self.click_skill_action()
         bullets = self.planner_action(
-            tags=ActionTag.DEFAULT_ACTION,
+            tags=Planner.ActionTag.DEFAULT_ACTION,
             execute=self.fire_bullets,
         )
 

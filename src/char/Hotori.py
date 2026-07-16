@@ -6,14 +6,10 @@ import numpy as np
 from src.char.BaseChar import BaseChar
 from src.combat.planner import (
     ActionReservation,
-    ActionSlot,
-    ActionTag,
     CombatContext,
     FieldClaim,
-    FieldPreference,
     FollowupStep,
     Planner,
-    Role,
     RoleProfile,
 )
 from src.utils import image_utils as iu
@@ -66,8 +62,8 @@ class Hotori(BaseChar):
 
     def describe_role(self):
         return RoleProfile(
-            role=Role.SUB_DPS,
-            field_preference=FieldPreference.SETUP_ONLY,
+            role=Planner.Role.SUB_DPS,
+            field_preference=Planner.FieldPreference.SETUP_ONLY,
             combat_start_priority=100,
             max_field_time=0,
         )
@@ -98,9 +94,9 @@ class Hotori(BaseChar):
         ultimate = self.planner_action(
             name="hotori_ultimate_with_records",
             tags={
-                ActionTag.ULTIMATE_ACTION,
-                ActionTag.SUPPORT,
-                ActionTag.COORDINATION_FINISHER,
+                Planner.ActionTag.ULTIMATE_ACTION,
+                Planner.ActionTag.SUPPORT,
+                Planner.ActionTag.COORDINATION_FINISHER,
             },
             execute=self._execute_hotori_ultimate,
             can_execute=lambda _: self.ready_for_ultimate(),
@@ -109,7 +105,7 @@ class Hotori(BaseChar):
         )
         setup = self.planner_action(
             name="hotori_team_record_setup",
-            tags={ActionTag.COORDINATION, ActionTag.SUPPORT},
+            tags={Planner.ActionTag.COORDINATION, Planner.ActionTag.SUPPORT},
             execute=self._execute_hotori_setup,
             reason="open team skill record window",
             can_execute=lambda _: self._can_start_record_setup(),
@@ -192,10 +188,10 @@ class Hotori(BaseChar):
                 )
             )
             plan.record_window_holds.append(
-                ActionReservation.for_action(team.nanally, ActionSlot.SKILL)
+                ActionReservation.for_action(team.nanally, Planner.ActionSlot.SKILL)
             )
             plan.combat_reservations.append(
-                ActionReservation.for_action(team.zero, ActionSlot.SKILL)
+                ActionReservation.for_action(team.zero, Planner.ActionSlot.SKILL)
             )
         else:
             self._add_skill_record_steps(
@@ -241,7 +237,7 @@ class Hotori(BaseChar):
             plan.steps.append(
                 FollowupStep.for_action(
                     target,
-                    ActionSlot.ULTIMATE,
+                    Planner.ActionSlot.ULTIMATE,
                     reason=ultimate_reason,
                     optional=True,
                 )
@@ -249,13 +245,13 @@ class Hotori(BaseChar):
             plan.steps.append(
                 FollowupStep.for_action(
                     target,
-                    ActionSlot.SKILL,
+                    Planner.ActionSlot.SKILL,
                     reason=skill_reason,
                     optional=optional,
                 )
             )
             plan.after_ultimate_reservations.append(
-                ActionReservation.for_action(target, ActionSlot.SKILL)
+                ActionReservation.for_action(target, Planner.ActionSlot.SKILL)
             )
 
     def _execute_hotori_ultimate(self, context: CombatContext = None):

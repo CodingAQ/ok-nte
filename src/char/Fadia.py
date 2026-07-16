@@ -1,6 +1,6 @@
 
 from src.char.BaseChar import BaseChar
-from src.combat.planner import FieldPreference, Role, RoleProfile
+from src.combat.planner import Planner, RoleProfile
 
 
 class Fadia(BaseChar):
@@ -9,8 +9,8 @@ class Fadia(BaseChar):
 
     def describe_role(self):
         return RoleProfile(
-            role=Role.SUB_DPS,
-            field_preference=FieldPreference.SUB_DPS,
+            role=Planner.Role.SUB_DPS,
+            field_preference=Planner.FieldPreference.SUB_DPS,
         )
 
     def combat_plan(self, context):

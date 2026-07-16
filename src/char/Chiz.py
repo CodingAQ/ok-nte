@@ -2,7 +2,7 @@ import re
 import time
 
 from src.char.BaseChar import BaseChar
-from src.combat.planner import FieldPreference, Role, RoleProfile
+from src.combat.planner import Planner, RoleProfile
 
 
 class Chiz(BaseChar):
@@ -11,8 +11,8 @@ class Chiz(BaseChar):
 
     def describe_role(self):
         return RoleProfile(
-            role=Role.MAIN_DPS,
-            field_preference=FieldPreference.MAIN_DPS,
+            role=Planner.Role.MAIN_DPS,
+            field_preference=Planner.FieldPreference.MAIN_DPS,
         )
 
     def combat_plan(self, context):

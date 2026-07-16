@@ -1,5 +1,5 @@
 from src.char.BaseChar import BaseChar
-from src.combat.planner import FieldClaim, FieldPreference, Role, RoleProfile
+from src.combat.planner import FieldClaim, Planner, RoleProfile
 
 
 class Lacrimosa(BaseChar):
@@ -8,8 +8,8 @@ class Lacrimosa(BaseChar):
 
     def describe_role(self):
         return RoleProfile(
-            role=Role.MAIN_DPS,
-            field_preference=FieldPreference.MAIN_DPS,
+            role=Planner.Role.MAIN_DPS,
+            field_preference=Planner.FieldPreference.MAIN_DPS,
             max_field_time=1.5,
         )
 

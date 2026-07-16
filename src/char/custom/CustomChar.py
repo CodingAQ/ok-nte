@@ -6,10 +6,7 @@ from ok import TaskDisabledException
 from src.char.BaseChar import BaseChar
 from src.char.custom.CustomCharManager import CustomCharManager
 from src.combat.planner import (
-    ActionSlot,
-    ActionTag,
-    FieldPreference,
-    Role,
+    Planner,
     RoleProfile,
 )
 
@@ -46,25 +43,28 @@ class CustomChar(BaseChar):
             self.logger.warning(f"No custom char info found for {self.char_name}")
 
     def describe_role(self):
-        return RoleProfile(role=Role.SUB_DPS, field_preference=FieldPreference.SUB_DPS)
+        return RoleProfile(
+            role=Planner.Role.SUB_DPS,
+            field_preference=Planner.FieldPreference.SUB_DPS,
+        )
 
     def combat_plan(self, context):
         if not self.parsed_combo:
             return super().combat_plan(context)
 
-        tags = {ActionTag.LEGACY_COMBO, ActionTag.DAMAGE}
+        tags = {Planner.ActionTag.LEGACY_COMBO, Planner.ActionTag.DAMAGE}
         reason = "legacy combo ready"
         if self.skill_available():
-            tags.add(ActionTag.SKILL_ACTION)
+            tags.add(Planner.ActionTag.SKILL_ACTION)
             reason = "legacy combo skill available"
         if self.ultimate_available():
-            tags.add(ActionTag.ULTIMATE_ACTION)
+            tags.add(Planner.ActionTag.ULTIMATE_ACTION)
 
         return self.plan(
             self.planner_action(
                 name="legacy_combo",
                 tags=tags,
-                slot=ActionSlot.LEGACY_COMBO,
+                slot=Planner.ActionSlot.LEGACY_COMBO,
                 execute=self.execute_legacy_combo_action,
                 reason=reason,
             )
