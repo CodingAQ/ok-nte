@@ -44,7 +44,7 @@ class CombatDetectResult:
 class CombatDetectPolicy:
     miss_required: int = 1
     uncertain_seconds: float = 0.5
-    retarget_settle_seconds: float = 0.4
+    retarget_settle_seconds: float = 0.3
 
 
 @dataclass
@@ -167,16 +167,16 @@ class CombatCheck(BaseNTETask):
         deadline = time.time() + time_out
         while time.time() < deadline:
             if self.is_in_team():
-                if self.combat_detect(lv=lv):
+                if self.wait_until(lambda: self.combat_detect(lv=lv), time_out=0.2):
                     return True
                 if turn:
                     self.send_key("a", down_time=0.1)
                     self.sleep(0.3)
                     self.middle_click()
-                    self.sleep(0.4)
+                    self.sleep(0.3)
                 else:
                     self.middle_click()
-                    self.sleep(0.4)
+                    self.sleep(0.3)
             self.next_frame()
 
     def has_health_bar(self):
@@ -254,7 +254,7 @@ class CombatCheck(BaseNTETask):
 
         policy = self.combat_detect_policy
         self.combat_detect_state.miss_count += 1
-        if self.combat_detect_state.miss_count < policy.miss_required:
+        if self.combat_detect_state.miss_count <= policy.miss_required:
             return CombatDetectPhase.IN_COMBAT
 
         if self.combat_detect_state.uncertain_until is None:
