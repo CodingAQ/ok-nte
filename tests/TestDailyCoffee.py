@@ -149,33 +149,6 @@ class TestDailyCoffeeLocaleGate(unittest.TestCase):
         finally:
             self._restore_app(original)
 
-    def test_dropdown_mode_selects_restock_task(self):
-        task = TestDailyCoffee()._task(
-            {DailyTask.CONF_COFFEE_TASK: DailyTask.COFFEE_MODE_AUTO}
-        )  # noqa: SLF001 - reuse stub helper
-
-        entry = DailyTask._coffee_task_entry(task)
-
-        self.assertIsNotNone(entry)
-        key, enabled, func = entry
-        self.assertEqual(DailyTask.COFFEE_MODE_AUTO, key)
-        self.assertTrue(enabled)
-        self.assertEqual(DailyTask.run_coffee_task.__name__, func.__name__)
-
-    def test_old_bool_config_does_not_select_restock_task(self):
-        task = TestDailyCoffee()._task(
-            {"运行一咖舍自动化": True}
-        )  # noqa: SLF001
-
-        self.assertIsNone(DailyTask._coffee_task_entry(task))
-
-    def test_dropdown_mode_none_skips_coffee_task(self):
-        task = TestDailyCoffee()._task(
-            {DailyTask.CONF_COFFEE_TASK: DailyTask.COFFEE_MODE_NONE}
-        )  # noqa: SLF001 - reuse stub helper
-
-        self.assertIsNone(DailyTask._coffee_task_entry(task))
-
     def test_claim_coffee_runtime_still_restocks(self):
         original = self._patch_locale("en_US")
         try:

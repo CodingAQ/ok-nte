@@ -36,6 +36,7 @@ from typing import Any, Callable, TypedDict
 import ok as _ok
 import ok.gui.util.app as _ok_app_util
 import ok.test as _ok_test
+import ok.test.TaskTestCase as _ok_task_test_case
 from ok.gui.common.config import cfg
 from ok.util.handler import ExitEvent
 from PySide6.QtWidgets import QApplication
@@ -73,37 +74,40 @@ class _Originals(TypedDict):
 
 def install_ok_test_runtime_isolation() -> None:
     """Patch ok.test helpers so each TaskTestCase class starts from clean state."""
-    if hasattr(_ok_test, _ORIGINALS_ATTR):
-        return
+    if not hasattr(_ok_test, _ORIGINALS_ATTR):
+        originals: _Originals = {
+            "init_app_config": _ok_app_util.init_app_config,
+            "init_ok": _ok_test.init_ok,
+            "destroy_ok": _ok_test.destroy_ok,
+        }
+        setattr(_ok_test, _ORIGINALS_ATTR, originals)
 
-    originals: _Originals = {
-        "init_app_config": _ok_app_util.init_app_config,
-        "init_ok": _ok_test.init_ok,
-        "destroy_ok": _ok_test.destroy_ok,
-    }
-    setattr(_ok_test, _ORIGINALS_ATTR, originals)
+        def init_app_config_reusing_qapplication():
+            app = QApplication.instance()
+            if app is None:
+                return originals["init_app_config"]()
+            return app, cfg.get(cfg.language).value
 
-    def init_app_config_reusing_qapplication():
-        app = QApplication.instance()
-        if app is None:
-            return originals["init_app_config"]()
-        return app, cfg.get(cfg.language).value
-
-    def init_ok_with_fresh_runtime(config):
-        _ok_test.ok = None
-        reset_ok_runtime_state()
-        return originals["init_ok"](config)
-
-    def destroy_ok_and_clear_singleton():
-        try:
-            return originals["destroy_ok"]()
-        finally:
+        def init_ok_with_fresh_runtime(config):
             _ok_test.ok = None
             reset_ok_runtime_state()
+            return originals["init_ok"](config)
 
-    _ok_app_util.init_app_config = init_app_config_reusing_qapplication
-    _ok_test.init_ok = init_ok_with_fresh_runtime
-    _ok_test.destroy_ok = destroy_ok_and_clear_singleton
+        def destroy_ok_and_clear_singleton():
+            try:
+                return originals["destroy_ok"]()
+            finally:
+                _ok_test.ok = None
+                reset_ok_runtime_state()
+
+        _ok_app_util.init_app_config = init_app_config_reusing_qapplication
+        _ok_test.init_ok = init_ok_with_fresh_runtime
+        _ok_test.destroy_ok = destroy_ok_and_clear_singleton
+
+    # TaskTestCase imports these helpers directly.  Updating ok.test alone does
+    # not affect a TaskTestCase module that was imported before this installer.
+    _ok_task_test_case.init_ok = _ok_test.init_ok
+    _ok_task_test_case.destroy_ok = _ok_test.destroy_ok
 
 
 def reset_ok_runtime_state() -> None:
