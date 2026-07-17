@@ -105,7 +105,8 @@ class MovementMixin(BaseTask):
                         time.monotonic(),
                     ):
                         logger.info(
-                            "Detected rapid lateral direction changes; recentering camera before resuming walk"
+                            "Detected rapid lateral direction changes; "
+                            "recentering camera before resuming walk"
                         )
                         if last_direction:
                             self.send_key_up(last_direction)
