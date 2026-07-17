@@ -1,8 +1,12 @@
 import time
+from collections import deque
 
 from ok import BaseTask, Logger
 
 logger = Logger.get_logger(__name__)
+
+LATERAL_DIRECTION_CHANGE_LIMIT = 4
+LATERAL_DIRECTION_CHANGE_WINDOW = 3.0
 
 
 class MovementMixin(BaseTask):
@@ -50,6 +54,19 @@ class MovementMixin(BaseTask):
             direction = "s" if y > self.height_of_screen(v_center) else "w"
         return direction, centered
 
+    @staticmethod
+    def _has_frequent_lateral_direction(next_direction, lateral_change_times, now):
+        """记录时间窗口内的 a/d 方向决策，并在达到阈值时请求重置视角。"""
+        lateral_directions = {"a", "d"}
+        oldest_allowed = now - LATERAL_DIRECTION_CHANGE_WINDOW
+        while lateral_change_times and lateral_change_times[0] < oldest_allowed:
+            lateral_change_times.popleft()
+        if next_direction not in lateral_directions:
+            return False
+
+        lateral_change_times.append(now)
+        return len(lateral_change_times) >= LATERAL_DIRECTION_CHANGE_LIMIT
+
     def _do_walk_to_box(
         self, find_function, time_out=30, end_condition=None, y_offset=0.05, x_threshold=0.07
     ):
@@ -64,6 +81,7 @@ class MovementMixin(BaseTask):
         ended = False
         last_target = None
         centered = False
+        lateral_change_times = deque()
         try:
             while time.time() - start < time_out:
                 self.next_frame()
@@ -81,6 +99,23 @@ class MovementMixin(BaseTask):
                     last_target, last_direction, y_offset, x_threshold, centered
                 )
                 if next_direction != last_direction:
+                    if self._has_frequent_lateral_direction(
+                        next_direction,
+                        lateral_change_times,
+                        time.monotonic(),
+                    ):
+                        logger.info(
+                            "Detected rapid lateral direction changes; recentering camera before resuming walk"
+                        )
+                        if last_direction:
+                            self.send_key_up(last_direction)
+                            self.sleep(0.001)
+                        self.send_key("s", after_sleep=0.3)
+                        self.middle_click(after_sleep=1)
+                        time_out += 5
+                        last_direction = None
+                        lateral_change_times.clear()
+                        continue
                     if last_direction:
                         self.send_key_up(last_direction)
                         self.sleep(0.001)
