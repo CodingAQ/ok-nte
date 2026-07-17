@@ -85,7 +85,7 @@ class AnomalyHunter(NTEOneTimeTask, BaseCombatTask):
         try:
             self.do_run()
         except TaskDisabledException:
-            pass
+            raise
         except Exception as e:
             self.log_error("AnomalyHunter Error", e)
 

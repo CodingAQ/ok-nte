@@ -3,6 +3,7 @@ import time
 from bisect import bisect_right
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
+from enum import Enum
 
 import cv2
 import numpy as np
@@ -12,7 +13,6 @@ from src import text_white_color
 from src.char.BaseChar import BaseChar, Element
 from src.char.CharFactory import get_char_by_id, get_char_by_pos
 from src.char.custom.CustomCharManager import CustomCharManager
-from src.char.Healer import Healer
 from src.combat.CombatCheck import CombatCheck
 from src.combat.planner import CombatPlanner
 from src.Labels import Labels
@@ -31,12 +31,6 @@ class NotInCombatException(Exception):
     pass
 
 
-class CharDeadException(NotInCombatException):
-    """角色死亡异常。"""
-
-    pass
-
-
 @dataclass
 class SleepCheckSkip:
     sound_combat_context: bool = False
@@ -50,6 +44,12 @@ class SleepCheckSkip:
     def all(self, value: bool):
         for field in fields(self):
             setattr(self, field.name, value)
+
+
+class TeamSurvivalStatus(Enum):
+    NO_DEATHS = 1  # 无人死亡
+    DEAD = 2  # 死亡
+    WIPED = 3  # 团灭
 
 
 class BaseCombatTask(CharElementUIMixin, CombatCheck):
@@ -319,9 +319,7 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
             message (str): 异常信息。
             exception_type (Exception, optional): 要抛出的异常类型。默认为 NotInCombatException。
         """
-        logger.error(message)
-        if self.reset_to_false(reason=message):
-            logger.error(f"reset to false failed: {message}")
+        logger.warning(message)
         if exception_type is None:
             exception_type = NotInCombatException
         raise exception_type(message)
@@ -362,10 +360,10 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
         self.wait_until(
             self.in_combat, time_out=wait_combat_time, raise_if_not_found=raise_if_not_found
         )
-        self.switch_to_combat_start_char()
-        self.info["Combat Count"] = self.info.get("Combat Count", 0) + 1
-        with self.retarget_turn_policy(enable=True):
-            try:
+        try:
+            self.switch_to_combat_start_char()
+            self.info["Combat Count"] = self.info.get("Combat Count", 0) + 1
+            with self.retarget_turn_policy(enable=True):
                 deadline = time.time() + max_combat_time
                 while self.in_combat():
                     logger.debug(f"combat_once loop {self.chars}")
@@ -374,12 +372,20 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
                         self.raise_not_in_combat(
                             f"Combat maximum duration of {max_combat_time}s reached."
                         )
-            except CharDeadException as e:
-                raise e
-            except NotInCombatException as e:
-                logger.info(f"combat_once out of combat break {e}")
-        self.combat_end()
-        self.wait_in_team(time_out=10, raise_if_not_found=False)
+        except NotInCombatException as e:
+            logger.info(f"combat_once out of combat break {e}")
+        finally:
+            team_status = (
+                TeamSurvivalStatus.DEAD
+                if any(char is not None and char.is_dead for char in self.chars)
+                else TeamSurvivalStatus.NO_DEATHS
+            )
+            self.combat_end()
+
+        if not self.wait_in_team(time_out=5, raise_if_not_found=False):
+            team_status = TeamSurvivalStatus.WIPED
+
+        return team_status
 
     def _get_char_log_name(self, char: "BaseChar"):
         if hasattr(char, "char_name"):
@@ -473,13 +479,13 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
                     self.check_combat()
                 else:
                     info = f"{log_prefix} not in team {elapsed}s"
-                    if elapsed > self.switch_char_time_out:
+                    if elapsed > 5:
                         self.raise_not_in_combat(info)
 
                     if self._mark_dead_char_if_detected(switch_to):
                         return
 
-                    self.run_with_interval(lambda: logger.info(info), interval=1)
+                    self.log_info_gated(info)
                     self.sleep(0.01)
                     continue
                 if self.scene.health_snapshot() is None:
@@ -537,7 +543,8 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
                         self.screenshot(
                             f"switch_not_detected_{current_char_name}_to_{switch_to_name}"
                         )
-                    self.raise_not_in_combat(f"{log_prefix} failed {switch_to_name}")
+                    switch_to.mark_dead(f"switch char timeout {time_out}s")
+                    return
 
                 self.sleep(0.01)
 
@@ -640,11 +647,19 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
         if isinstance(self, AutoCombatTask):
             current_char.logger.debug("AutoCombatTask, skip switch_other_char")
             return
-        target_index = next(
-            (c.index for c in self.chars if c and c.index != current_char.index),
-            (current_char.index + 1) % len(self.chars),
+        target = next(
+            (
+                char
+                for char in self.chars
+                if char and char.index != current_char.index and not char.is_dead
+            ),
+            None,
         )
-        next_char = str(target_index + 1)
+        if target is None:
+            current_char.logger.info("No living teammate available after combat")
+            return
+
+        next_char = str(target.index + 1)
         current_char.logger.debug(
             f"{current_char.char_name} on_combat_end {current_char.index} "
             f"switch next char: {next_char}"
@@ -677,7 +692,6 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
             current_char=current_char,
             has_intro=decision.has_intro,
             log_prefix=f"planner combat start ({decision.reason})",
-            time_out=self.switch_char_time_out,
         )
 
     def get_ultimate_key(self):
@@ -750,11 +764,17 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
 
     def combat_end(self):
         """战斗结束时调用的清理方法。"""
+        self.reset_to_false()
         SoundCombatContext().clear_task_if(self)
 
         current_char = self.get_current_char(raise_exception=False)
         if current_char:
-            self.get_current_char().on_combat_end(self.chars)
+            try:
+                self.get_current_char().on_combat_end(self.chars)
+            except Exception as e:
+                self.log_error(f"{current_char.char_name} on_combat_end error", e)
+                pass
+
         self._clear_dead_chars()
 
     def _clear_dead_chars(self):

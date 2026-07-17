@@ -3,7 +3,7 @@ import time
 from ok import Logger, TriggerTask
 from qfluentwidgets import FluentIcon
 
-from src.combat.BaseCombatTask import BaseCombatTask, CharDeadException, NotInCombatException
+from src.combat.BaseCombatTask import BaseCombatTask, NotInCombatException
 
 logger = Logger.get_logger(__name__)
 
@@ -37,19 +37,16 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
         if not self.scene.is_in_team(self.is_in_team):
             return
 
-        while self.in_combat():
-            try:
+        try:
+            while self.in_combat():
                 if not ret:
                     ret = True
                     combat_start = time.time()
                     self.use_ultimate = self.config.get(self.CONF_USE_ULT, True)
                     self.switch_to_combat_start_char()
                 self.get_current_char(raise_exception=True).perform()
-            except CharDeadException:
-                self.log_error("Characters dead", notify=True)
-                break
-            except NotInCombatException as e:
-                logger.info(f"auto_combat_task_out_of_combat {int(time.time() - combat_start)} {e}")
-                break
-        if ret:
-            self.combat_end()
+        except NotInCombatException as e:
+            logger.info(f"auto_combat_task_out_of_combat {int(time.time() - combat_start)} {e}")
+        finally:
+            if ret:
+                self.combat_end()

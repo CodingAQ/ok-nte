@@ -352,7 +352,9 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
         in_world = self.in_world()
         return in_team and in_world
 
-    def wait_in_team(self, time_out=30, raise_if_not_found=True, esc=False, settle_time=0):
+    def wait_in_team(
+        self, time_out=30, raise_if_not_found=True, esc=False, settle_time=0
+    ) -> Box | None:
         success = self.wait_until(
             self.is_in_team,
             time_out=time_out,
@@ -515,7 +517,7 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
 
     def openF1panel(self):
         if hasattr(self, "reset_to_false"):
-            self.reset_to_false("opening f1 panel")
+            self.reset_to_false()
         if self.is_in_team():
             self.send_key("f1", after_sleep=1)
             self.log_info("send f1 key to open the panel")
@@ -529,7 +531,7 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
 
     def openF2panel(self):
         if hasattr(self, "reset_to_false"):
-            self.reset_to_false("opening f2 panel")
+            self.reset_to_false()
         if self.is_in_team():
             self.send_key("f2", after_sleep=1)
             self.log_info("send f2 key to open the panel")
@@ -543,7 +545,7 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
 
     def openF5panel(self):
         if hasattr(self, "reset_to_false"):
-            self.reset_to_false("opening f5 panel")
+            self.reset_to_false()
         if self.is_in_team():
             self.send_key("f5", after_sleep=1)
             self.log_info("send f5 key to open the panel")
@@ -557,7 +559,7 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
 
     def openESCpanel(self):
         if hasattr(self, "reset_to_false"):
-            self.reset_to_false("opening esc panel")
+            self.reset_to_false()
         if self.is_in_team():
             self.send_key("esc", after_sleep=1)
             self.log_info("send esc key to open the panel")
