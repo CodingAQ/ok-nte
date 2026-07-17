@@ -31,6 +31,7 @@ MSG_WORLD_DETECTION_FAILED = "大世界检测失败: 请检查游戏内 UI 透�
 
 class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin, BaseTask):
     CONF_ROUNDS = "循环次数"
+    CONF_CLAIM_REWARD_COUNT = "领取奖励次数"
     INFINITE_ROUNDS_TEXT = "∞"
     DEFAULT_MOVE = False
 
@@ -70,6 +71,12 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
     def add_rounds_config(self, default=0):
         self.default_config.update({self.CONF_ROUNDS: default})
         self.config_description.update({self.CONF_ROUNDS: "设置为0则一直运行"})
+
+    def add_claim_reward_count_config(self, default=0):
+        self.default_config.update({self.CONF_CLAIM_REWARD_COUNT: default})
+        self.config_description.update(
+            {self.CONF_CLAIM_REWARD_COUNT: "设置为0则领取当前体力可领取的全部奖励"}
+        )
 
     def sync_config(self, config=None):
         """同步并保存配置"""

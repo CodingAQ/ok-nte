@@ -10,7 +10,6 @@ from src.tasks.NTEOneTimeTask import NTEOneTimeTask
 class AnomalyHunter(NTEOneTimeTask, BaseCombatTask):
     # --- 配置项键名 ---
     CONF_HUNTER_TARGET = "追猎目标"
-    CONF_STAMINA_TARGET = "体力消耗目标"
 
     # --- 追猎目标选项 ---
     TARGET_SOUND_KING = "音霸魔王"
@@ -57,12 +56,11 @@ class AnomalyHunter(NTEOneTimeTask, BaseCombatTask):
         self.setup_config(self)
 
     @classmethod
-    def setup_config(cls, instance: "BaseNTETask"):
+    def setup_config(cls, instance: "BaseNTETask", daily=False):
         """初始化异象追猎配置。"""
         instance.default_config.update(
             {
                 cls.CONF_HUNTER_TARGET: cls.TARGET_SOUND_KING,
-                cls.CONF_STAMINA_TARGET: 0,
             }
         )
 
@@ -77,9 +75,10 @@ class AnomalyHunter(NTEOneTimeTask, BaseCombatTask):
         instance.config_description.update(
             {
                 cls.CONF_HUNTER_TARGET: "选择要挑战的异象追猎目标",
-                cls.CONF_STAMINA_TARGET: "设置为0则使用当前全部体力；每次消耗60体力",
             }
         )
+        if not daily:
+            instance.add_claim_reward_count_config()
 
     def run(self):
         super().run()
@@ -96,7 +95,6 @@ class AnomalyHunter(NTEOneTimeTask, BaseCombatTask):
 
         target = self.normalize_target(config.get(self.CONF_HUNTER_TARGET, self.TARGET_SOUND_KING))
         target_idx = self.get_target_idx(target)
-        stamina_target = self.get_stamina_target(config, stamina_target)
         self.info_set("追猎目标", target)
         self.log_info(f"开始异象追猎任务: {target}, 目标索引: {target_idx}")
 
@@ -108,10 +106,13 @@ class AnomalyHunter(NTEOneTimeTask, BaseCombatTask):
             return False
 
         stamina_units = stamina // self.TASK_COST
-        if stamina_target > 0:
+        if stamina_target is not None:
             target_units = (stamina_target + self.TASK_COST - 1) // self.TASK_COST
             stamina_units = min(stamina_units, target_units)
             self.info_set("体力消耗目标", stamina_target)
+        reward_count = config.get(self.CONF_CLAIM_REWARD_COUNT, 0)
+        if reward_count > 0:
+            stamina_units = min(stamina_units, reward_count)
 
         if stamina_units <= 0:
             self.log_warning("没有可执行的异象追猎目标，退出任务", notify=True)
@@ -168,14 +169,6 @@ class AnomalyHunter(NTEOneTimeTask, BaseCombatTask):
         self.sleep(0.5)
         self.operate_click(self.HUNTER_TAB_X, self.HUNTER_TAB_Y)
         self.sleep(0.5)
-
-    def get_stamina_target(self, config: dict, stamina_target=None) -> int:
-        if stamina_target is None:
-            stamina_target = config.get(self.CONF_STAMINA_TARGET, 0)
-        try:
-            return max(0, int(stamina_target))
-        except (TypeError, ValueError):
-            return 0
 
     def normalize_target(self, target: str) -> str:
         if target not in self.HUNTER_TARGETS:

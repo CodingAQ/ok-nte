@@ -53,7 +53,7 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
         self.task_status = {"success": [], "failed": [], "skipped": [], "pending": []}
         self.working_task: Optional[BaseNTETask] = None
 
-        AnomalyTask.setup_config(self, setup_cycle=True)
+        AnomalyTask.setup_config(self, daily=True)
         self.default_config.update(
             {
                 self.CONF_TASK: self.TASK[0],

@@ -44,7 +44,7 @@ class AnomalyTask(NTEOneTimeTask, BaseCombatTask):
         self.setup_config(self)
 
     @classmethod
-    def setup_config(cls, instance: "BaseNTETask", setup_cycle=False):
+    def setup_config(cls, instance: "BaseNTETask", daily=False):
         """
         初始化配置。支持传入外部实例（如 DailyTask）来同步配置项。
         """
@@ -55,7 +55,7 @@ class AnomalyTask(NTEOneTimeTask, BaseCombatTask):
             cls.CONF_ARC_ID: 1,
             cls.CONF_CONSOLE_ID: 1,
         }
-        if setup_cycle:
+        if daily:
             config_updates[cls.CONF_AUTO_CYCLE_SUB_TASK] = False
         instance.default_config.update(config_updates)
 
@@ -90,9 +90,11 @@ class AnomalyTask(NTEOneTimeTask, BaseCombatTask):
             cls.CONF_ARC_ID: fmt.format(*cls.ARC_IDX_RANGE),
             cls.CONF_CONSOLE_ID: fmt.format(*cls.CONSOLE_IDX_RANGE),
         }
-        if setup_cycle:
+        if daily:
             description_update[cls.CONF_AUTO_CYCLE_SUB_TASK] = "任务完成后自动切换至下一个项目"
         instance.config_description.update(description_update)
+        if not daily:
+            instance.add_claim_reward_count_config()
 
     def run(self):
         super().run()
@@ -157,6 +159,9 @@ class AnomalyTask(NTEOneTimeTask, BaseCombatTask):
             target_units = (stamina_target + self.TASK_COST - 1) // self.TASK_COST
             stamina_units = min(stamina_units, target_units)
             self.info_set("体力消耗目标", stamina_target)
+        reward_count = config.get(self.CONF_CLAIM_REWARD_COUNT, 0)
+        if reward_count > 0:
+            stamina_units = min(stamina_units, reward_count)
         double_count = stamina_units // 2
         single_count = stamina_units % 2
         self.log_info(f"双倍次数: {double_count}, 单倍次数: {single_count}")
