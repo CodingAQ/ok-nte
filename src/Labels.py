@@ -74,3 +74,4 @@ class Labels(str, Enum):
     treasure = 'treasure'
     ult_ready = 'ult_ready'
     unlimit_gift = 'unlimit_gift'
+    boss_treasure = 'boss_treasure'
