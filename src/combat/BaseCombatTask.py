@@ -350,7 +350,13 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
             current = 0
         return current
 
-    def combat_once(self, wait_combat_time=200, max_combat_time=1200, raise_if_not_found=True):
+    def combat_once(
+        self,
+        wait_combat_time=200,
+        max_combat_time=1200,
+        raise_if_not_found=True,
+        retarget_turn=True,
+    ):
         """执行一次完整的战斗流程。
 
         Args:
@@ -363,7 +369,7 @@ class BaseCombatTask(CharElementUIMixin, CombatCheck):
         try:
             self.switch_to_combat_start_char()
             self.info["Combat Count"] = self.info.get("Combat Count", 0) + 1
-            with self.retarget_turn_policy(enable=True):
+            with self.retarget_turn_policy(enable=retarget_turn):
                 deadline = time.time() + max_combat_time
                 while self.in_combat():
                     logger.debug(f"combat_once loop {self.chars}")
