@@ -80,10 +80,10 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
                     "type": "drop_down",
                     "options": self.TASK,
                     "sub_configs": {
-                        self.TASK[0]: {
+                        self.TASK[0]: [
                             AnomalyTask.CONF_TASK_TYPE,
                             AnomalyTask.CONF_AUTO_CYCLE_SUB_TASK,
-                        },
+                        ],
                     },
                 },
                 self.CONF_COFFEE_TASK: {
