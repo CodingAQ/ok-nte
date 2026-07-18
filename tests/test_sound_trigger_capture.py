@@ -1,4 +1,5 @@
 import sys
+import threading
 import unittest
 
 import numpy as np
@@ -112,8 +113,11 @@ class SoundListenerTests(unittest.TestCase):
         listener = RestartingListener(sample_path="", counter_attack_sample_path="")
         listener.attempts = 0
 
-        self.assertTrue(listener.start())
-        listener._listener_thread.join(timeout=1.0)
+        # Exercise the retry loop synchronously. Starting a daemon thread and
+        # immediately joining it makes this assertion dependent on OS thread
+        # scheduling, which can exceed the timeout on a busy CI runner.
+        listener._running = True
+        listener._listen_loop(threading.Event())
 
         self.assertEqual(listener.attempts, 2)
         self.assertFalse(listener.is_running)

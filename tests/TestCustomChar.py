@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+from PySide6.QtWidgets import QApplication
 from ok.test.TaskTestCase import TaskTestCase
 
 from src.char.custom.CustomChar import CustomChar
@@ -18,6 +19,14 @@ PREDEFINED_CHARACTER_ID = "char_zero"
 class TestCustomChar(TaskTestCase):
     task_class = AutoCombatTask
     config = config
+
+    @classmethod
+    def setUpClass(cls):
+        # This suite instantiates QWidget-based management tabs. Keep its Qt
+        # application lifecycle explicit instead of relying on the task-test
+        # runtime to create a GUI application as a side effect.
+        cls._qt_app = QApplication.instance() or QApplication([])
+        super().setUpClass()
 
     def test_scan_team(self):
         from src.ui.TeamManagerTab import team_manager_signals

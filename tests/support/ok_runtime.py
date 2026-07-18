@@ -8,17 +8,16 @@ Why this exists:
     runtime state, later tests can inherit a finished executor/exit_event and
     fail with FinishedException when they call TaskTestCase.set_image().
 
-    ok-script also has a headless entry point (ok.run_task(use_gui=False)), but
-    the current ok.test.init_ok() helper still touches ok.app explicitly. That
-    forces a GUI App/QApplication even for tests. Some ok-nte tests instantiate
-    QWidget-based tabs directly, so this layer reuses one QApplication instead
-    of trying to remove Qt from the test process.
+    The TaskTestCase suites exercise task logic only, but the stock
+    ok.test.init_ok() helper touches ok.app explicitly. That creates a GUI
+    App/QApplication and leaves queued Qt cleanup work behind despite the test
+    runner never entering Qt's event loop. Run these suites with ok's existing
+    HeadlessApp instead. UI tests should create and own their QApplication
+    explicitly instead of inheriting this process-wide runtime.
 
 Future maintenance checklist:
-    - If ok.test.init_ok() starts creating a fresh OK runtime for every
-      TaskTestCase class, remove the init_ok/destroy_ok patches below.
-    - If ok.test.TaskTestCase gains a real headless mode, prefer that and keep
-      only a small QApplication fixture for UI tests that instantiate widgets.
+    - If ok.test.TaskTestCase gains a real headless mode, remove the
+      init_ok/destroy_ok patches below.
     - If ok.OK adds or removes class-level runtime attributes, update
       _OK_CLASS_STATE_ATTRS so no stale executor/device/feature state survives.
     - If ok.og gains new process-global runtime references, update
@@ -31,15 +30,14 @@ ok-script also parses ``-t`` as its task argument.
 
 from __future__ import annotations
 
-from typing import Any, Callable, TypedDict
+import threading
 
 import ok as _ok
-import ok.gui.util.app as _ok_app_util
 import ok.test as _ok_test
 import ok.test.TaskTestCase as _ok_task_test_case
-from ok.gui.common.config import cfg
+from ok.gui.Communicate import communicate
+from ok.task.TaskExecutor import TaskExecutor
 from ok.util.handler import ExitEvent
-from PySide6.QtWidgets import QApplication
 
 _ORIGINALS_ATTR = "_ok_nte_runtime_isolation_originals"
 
@@ -66,41 +64,70 @@ _OK_GLOBAL_STATE_ATTRS = (
 )
 
 
-class _Originals(TypedDict):
-    init_app_config: Callable[[], tuple[Any, Any]]
-    init_ok: Callable[[dict[str, Any]], Any]
-    destroy_ok: Callable[[], Any]
-
-
 def install_ok_test_runtime_isolation() -> None:
     """Patch ok.test helpers so each TaskTestCase class starts from clean state."""
     if not hasattr(_ok_test, _ORIGINALS_ATTR):
-        originals: _Originals = {
-            "init_app_config": _ok_app_util.init_app_config,
-            "init_ok": _ok_test.init_ok,
-            "destroy_ok": _ok_test.destroy_ok,
-        }
-        setattr(_ok_test, _ORIGINALS_ATTR, originals)
-
-        def init_app_config_reusing_qapplication():
-            app = QApplication.instance()
-            if app is None:
-                return originals["init_app_config"]()
-            return app, cfg.get(cfg.language).value
+        setattr(_ok_test, _ORIGINALS_ATTR, True)
 
         def init_ok_with_fresh_runtime(config):
             _ok_test.ok = None
             reset_ok_runtime_state()
-            return originals["init_ok"](config)
+
+            test_config = dict(config)
+            test_config["analytics"] = None
+            test_config["check_mutex"] = False
+            test_config["debug"] = True
+            test_config["use_gui"] = False
+            test_config["my_app"] = None
+            test_config["blur_area"] = None
+
+            runtime = _ok.OK(test_config)
+            _ok_test.ok = runtime
+            runtime.task_executor.debug_mode = True
+            runtime.device_manager.capture_method = _ok.ImageCaptureMethod(
+                runtime.device_manager.exit_event, []
+            )
+            runtime.device_manager.device_dict["image"] = {
+                "address": "",
+                "imei": "image",
+                "device": "image",
+                "nick": "Image",
+                "width": 0,
+                "height": 0,
+                "capture": "image",
+                "connected": True,
+            }
+            runtime.device_manager.config["preferred"] = "image"
+            runtime.device_manager.interaction = _ok.DoNothingInteraction(
+                runtime.device_manager.capture_method
+            )
+            if scene_config := test_config.get("scene"):
+                runtime.task_executor.scene = _ok.init_class_by_name(
+                    scene_config[0], scene_config[1]
+                )
+            runtime.task_executor.start()
 
         def destroy_ok_and_clear_singleton():
+            runtime = _ok_test.ok
             try:
-                return originals["destroy_ok"]()
+                if runtime is not None:
+                    runtime.quit()
+                    executor_thread = runtime.task_executor.thread
+                    if executor_thread and executor_thread is not threading.current_thread():
+                        executor_thread.join(timeout=2.0)
+                    if runtime._headless_app is not None:
+                        try:
+                            communicate.quit.disconnect(runtime._headless_app.quit)
+                        except RuntimeError:
+                            pass
             finally:
                 _ok_test.ok = None
                 reset_ok_runtime_state()
 
-        _ok_app_util.init_app_config = init_app_config_reusing_qapplication
+        def init_default_ocr_on_demand(_executor):
+            """Avoid native OCR initialization racing interpreter shutdown in tests."""
+
+        TaskExecutor.init_default_ocr = init_default_ocr_on_demand
         _ok_test.init_ok = init_ok_with_fresh_runtime
         _ok_test.destroy_ok = destroy_ok_and_clear_singleton
 
