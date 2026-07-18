@@ -121,17 +121,18 @@ class GiftTask(NTEOneTimeTask, BaseNTETask):
             for column in range(self.GIFT_COLUMNS)
         ]
 
+    def get_unlimit_gift_box(self, gift_box):
+        """Return the small upper-left unlimited-gift badge zone for one gift slot."""
+        return gift_box.copy(
+            x_offset=-round(gift_box.width * self.UNLIMIT_ICON_X_OFFSET_RATIO),
+            y_offset=-round(gift_box.height * self.UNLIMIT_ICON_Y_OFFSET_RATIO),
+            width_offset=-round(gift_box.width * self.UNLIMIT_ICON_WIDTH_REDUCTION_RATIO),
+            name=f"{gift_box.name}_unlimit_badge",
+        )
+
     def get_unlimit_gift_boxes(self):
         """Return the small upper-left badge zone associated with each visible gift slot."""
-        return [
-            gift_box.copy(
-                x_offset=-round(gift_box.width * self.UNLIMIT_ICON_X_OFFSET_RATIO),
-                y_offset=-round(gift_box.height * self.UNLIMIT_ICON_Y_OFFSET_RATIO),
-                width_offset=-round(gift_box.width * self.UNLIMIT_ICON_WIDTH_REDUCTION_RATIO),
-                name=f"{gift_box.name}_unlimit_badge",
-            )
-            for gift_box in self.get_gift_boxes()
-        ]
+        return [self.get_unlimit_gift_box(gift_box) for gift_box in self.get_gift_boxes()]
 
     def resize_captured_frame(self, frame: np.ndarray) -> np.ndarray:
         """Fit a saved full frame to the current game frame so every layout Box is reusable."""
@@ -294,6 +295,9 @@ class GiftTask(NTEOneTimeTask, BaseNTETask):
             self._report(f"{profile['display_name']} 已赠送 {sent}/{requested}")
 
     def _give_once(self, gift_box, previous_count: int) -> bool:
+        if self.find_one(Labels.unlimit_gift, box=self.get_unlimit_gift_box(gift_box)):
+            self.log_warning(f"检测到无限礼物，取消赠送: {gift_box.name}")
+            return False
         self.operate_click(gift_box)
         self.sleep(0.3)
         self.operate_click(*self.SEND_BUTTON)

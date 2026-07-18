@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import numpy as np
 from ok import Box
 
+from src.Labels import Labels
 from src.tasks.GiftTask import GiftTask
 
 
@@ -35,6 +36,9 @@ class TestGiftTask(unittest.TestCase):
         self.assertEqual(len(badge_boxes), 10)
         self.assertLess(badge_boxes[0].x, gift_boxes[0].x)
         self.assertLess(badge_boxes[0].y, gift_boxes[0].y)
+        self.assertEqual(
+            GiftTask.get_unlimit_gift_box(task, gift_boxes[0]).name, "gift_slot_0_unlimit_badge"
+        )
 
     def test_character_match_delegates_template_matching_to_find_one(self):
         task = object.__new__(GiftTask)
@@ -99,6 +103,16 @@ class TestGiftTask(unittest.TestCase):
         )
         self.assertEqual(summary["success"], 0)
         self.assertEqual(len(summary["failed"]), 1)
+
+    def test_give_once_does_not_click_an_unlimited_gift(self):
+        task = object.__new__(GiftTask)
+        gift_box = SimpleNamespace(name="gift_slot_0")
+        task.get_unlimit_gift_box = lambda box: box
+        task.find_one = lambda label, box: label == Labels.unlimit_gift and box is gift_box
+        task.log_warning = lambda _message: None
+        task.operate_click = lambda *_args: self.fail("must not click an unlimited gift")
+
+        self.assertFalse(GiftTask._give_once(task, gift_box, previous_count=3))
 
     def test_give_profile_does_not_click_when_character_already_reached_target(self):
         task = object.__new__(GiftTask)
