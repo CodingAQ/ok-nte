@@ -1054,7 +1054,7 @@ msgstr ""
 msgid "大世界检测失败: 请检查游戏内 UI 透明度是否已设置为 1.0。"
 msgstr ""
 
-msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用。"
+msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用，交战流畅度将受到影响。"
 msgstr ""
 
 msgid "战斗后等待至时长上限"
@@ -1175,4 +1175,10 @@ msgid "围巢鸟"
 msgstr ""
 
 msgid "斑蝶"
+msgstr ""
+
+msgid "自动战斗检测诊断"
+msgstr ""
+
+msgid "持续检测诊断 LV、目标和红色血条；请手动停止以查看完整报告"
 msgstr ""

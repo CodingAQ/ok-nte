@@ -802,8 +802,8 @@ msgstr "Falha ao detectar a interface principal. Ações sugeridas: \n1. Desativ
 msgid "大世界检测失败: 请检查游戏内 UI 透明度是否已设置为 1.0。"
 msgstr "Falha ao detectar o mundo aberto: verifique se a opacidade da interface do usuário no jogo foi definida como 1.0."
 
-msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用。"
-msgstr "A CPU atual não suporta AVX2, portanto a inferência de CPU do OpenVINO 2026 não pode ser executada; a detecção de alvos para combate automático ficará indisponível."
+msgid "当前 CPU 不支持 AVX2, 无法运行 OpenVINO 2026 CPU 推理；自动战斗的目标检测将不可用，交战流畅度将受到影响。"
+msgstr "A CPU atual não suporta AVX2, portanto a inferência de CPU do OpenVINO 2026 não pode ser executada; a detecção de alvos para combate automático ficará indisponível e a fluidez do combate será afetada."
 
 msgid "战斗后等待至时长上限"
 msgstr "Aguardar até o tempo limite após o combate"
@@ -927,3 +927,9 @@ msgstr "Nestbound Bird"
 
 msgid "斑蝶"
 msgstr "Swallowtail"
+
+msgid "自动战斗检测诊断"
+msgstr "Diagnósticos de detecção de combate automático"
+
+msgid "持续检测诊断 LV、目标和红色血条；请手动停止以查看完整报告"
+msgstr "Diagnostica continuamente a detecção de LV, alvo e barra de vida vermelha; por favor, pare manualmente para visualizar o relatório completo."
