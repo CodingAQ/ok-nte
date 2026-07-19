@@ -28,7 +28,6 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
 
     ENTER_SCENE_TIMEOUT = 5
     MACHINE_TIMEOUT = 20
-    ENTER_CONTROL_TIMEOUT = 10
     CONTROL_TIMEOUT = 30
     RESTOCK_RETRY_LIMIT = 3
     FISHING_RETRY_LIMIT = 3
@@ -134,8 +133,8 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
                     retry_count = 0
                     continue
 
-                if self.is_fish_biting():
-                    self._set_stage("is bite")
+                if self.is_waiting_bite():
+                    self._set_stage("waiting bite")
                     machine_start = None
                     if pending_success_round is not None:
                         failed_count += 1
@@ -149,13 +148,13 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
                         ):
                             continue
 
-                    self.log_info("鱼儿咬钩")
-                    self.enter_control_bar()
-                    retry_count = 0
+                    self.send_key("f", interval=2, action_name="bite_f")
+                    self.sleep(0.1)
                     continue
 
                 if self.is_playing_fish():
                     self._set_stage("control bar")
+                    self.log_info("进入溜鱼状态")
                     machine_start = None
                     self.control_until_finish()
                     pending_success_round = round_index
@@ -212,16 +211,6 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
             f"自动钓鱼结束，成功 {success_count}/{target_rounds_text}",
             notify=True,
         )
-
-    def enter_control_bar(self):
-        self._set_stage("control bar")
-        self.wait_until(
-            lambda: not self.has_fish_start(),
-            pre_action=lambda: self.send_key("f", interval=2, action_name="bite_f"),
-            time_out=self.ENTER_CONTROL_TIMEOUT,
-            raise_if_not_found=True,
-        )
-        self.log_info("进入溜鱼状态")
 
     def control_until_finish(self):
         start_check_time = time.time() + 1
@@ -629,30 +618,6 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
 
         return self.find_one(Labels.fish_bait, frame_processor=frame_process)
 
-    def is_fish_biting(self):
-        box = self.box_of_screen(0.9023, 0.8562, 0.9488, 0.9403, name="fishing_bite_indicator")
-        image = box.crop_frame(self.frame)
-        if image is None or image.size == 0:
-            return False
-
-        blue_mask = iu.create_color_mask(image, fishing_bite_blue_color, to_bgr=False)
-        h, w = blue_mask.shape[:2]
-        center = (w // 2, h // 2)
-        max_radius = min(h, w) // 2
-        target_radius = int(max_radius * 0.7)
-
-        circle_mask = np.ones((h, w), dtype="uint8")
-        cv2.circle(circle_mask, center, target_radius, 0, -1)
-
-        masked_blue = cv2.bitwise_and(blue_mask, circle_mask)
-        blue_pixels = int(cv2.countNonZero(masked_blue))
-        total_circle_pixels = int(cv2.countNonZero(circle_mask))
-        if total_circle_pixels == 0:
-            return False
-
-        blue_pixels_ratio = blue_pixels / total_circle_pixels
-        return blue_pixels_ratio > 0.07
-
     def handle_monthly_card(self):
         monthly_card = self.find_monthly_card()
         if monthly_card is not None:
@@ -688,10 +653,3 @@ class FishingTask(NTEOneTimeTask, BaseNTETask):
     def _set_stage(self, stage: str):
         if self.info_get("当前阶段") != stage:
             self.info_set("当前阶段", stage)
-
-
-fishing_bite_blue_color = {
-    "r": (30, 35),
-    "g": (120, 130),
-    "b": (250, 255),
-}
