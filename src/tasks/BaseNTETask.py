@@ -146,7 +146,7 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
         if og.my_app is None:
             return None
         return getattr(og.my_app, "openvino_latest_image", None)
-    
+
     @property
     def openvino_available(self):
         return getattr(og.my_app, "openvino_available", None)
@@ -524,9 +524,9 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
             self.reset_to_false()
 
         def action():
-        if self.is_in_team():
-            self.send_key("f1", after_sleep=1)
-            self.log_info("send f1 key to open the panel")
+            if self.is_in_team():
+                self.send_key("f1", after_sleep=1)
+                self.log_info("send f1 key to open the panel")
             return self.wait_panel(Labels.f1_panel)
 
         result = self.retry_on_action(action, self.ensure_main)
@@ -541,9 +541,9 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
             self.reset_to_false()
 
         def action():
-        if self.is_in_team():
-            self.send_key("f2", after_sleep=1)
-            self.log_info("send f2 key to open the panel")
+            if self.is_in_team():
+                self.send_key("f2", after_sleep=1)
+                self.log_info("send f2 key to open the panel")
             return self.wait_panel(Labels.f2_panel)
 
         result = self.retry_on_action(action, self.ensure_main)
@@ -558,9 +558,9 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
             self.reset_to_false()
 
         def action():
-        if self.is_in_team():
-            self.send_key("f5", after_sleep=1)
-            self.log_info("send f5 key to open the panel")
+            if self.is_in_team():
+                self.send_key("f5", after_sleep=1)
+                self.log_info("send f5 key to open the panel")
             return self.wait_panel(Labels.f5_panel)
 
         result = self.retry_on_action(action, self.ensure_main)
@@ -575,9 +575,9 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
             self.reset_to_false()
 
         def action():
-        if self.is_in_team():
-            self.send_key("esc", after_sleep=1)
-            self.log_info("send esc key to open the panel")
+            if self.is_in_team():
+                self.send_key("esc", after_sleep=1)
+                self.log_info("send esc key to open the panel")
             return self.wait_panel(Labels.esc_option, box=Labels.box_all_esc_options, threshold=0.3)
 
         result = self.retry_on_action(action, self.ensure_main)
