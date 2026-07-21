@@ -522,11 +522,14 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
     def openF1panel(self):
         if hasattr(self, "reset_to_false"):
             self.reset_to_false()
+
+        def action():
         if self.is_in_team():
             self.send_key("f1", after_sleep=1)
             self.log_info("send f1 key to open the panel")
+            return self.wait_panel(Labels.f1_panel)
 
-        result = self.wait_panel(Labels.f1_panel)
+        result = self.retry_on_action(action, self.ensure_main)
         if not result:
             self.log_error("can't find panel, make sure f1 is the hotkey for panel", notify=True)
             raise CannotFindException("can't find panel, make sure f1 is the hotkey for panel")
@@ -536,11 +539,14 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
     def openF2panel(self):
         if hasattr(self, "reset_to_false"):
             self.reset_to_false()
+
+        def action():
         if self.is_in_team():
             self.send_key("f2", after_sleep=1)
             self.log_info("send f2 key to open the panel")
+            return self.wait_panel(Labels.f2_panel)
 
-        result = self.wait_panel(Labels.f2_panel)
+        result = self.retry_on_action(action, self.ensure_main)
         if not result:
             self.log_error("can't find panel, make sure f2 is the hotkey for panel", notify=True)
             raise CannotFindException("can't find panel, make sure f2 is the hotkey for panel")
@@ -550,11 +556,14 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
     def openF5panel(self):
         if hasattr(self, "reset_to_false"):
             self.reset_to_false()
+
+        def action():
         if self.is_in_team():
             self.send_key("f5", after_sleep=1)
             self.log_info("send f5 key to open the panel")
+            return self.wait_panel(Labels.f5_panel)
 
-        result = self.wait_panel(Labels.f5_panel)
+        result = self.retry_on_action(action, self.ensure_main)
         if not result:
             self.log_error("can't find panel, make sure f5 is the hotkey for panel", notify=True)
             raise CannotFindException("can't find panel, make sure f5 is the hotkey for panel")
@@ -564,18 +573,21 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
     def openESCpanel(self):
         if hasattr(self, "reset_to_false"):
             self.reset_to_false()
+
+        def action():
         if self.is_in_team():
             self.send_key("esc", after_sleep=1)
             self.log_info("send esc key to open the panel")
+            return self.wait_panel(Labels.esc_option, box=Labels.box_all_esc_options, threshold=0.3)
 
-        result = self.wait_panel(Labels.esc_option, box=Labels.box_all_esc_options, threshold=0.3)
+        result = self.retry_on_action(action, self.ensure_main)
         if not result:
             self.log_error("can't find panel, make sure esc is the hotkey for panel", notify=True)
             raise CannotFindException("can't find panel, make sure esc is the hotkey for panel")
         self.sleep(0.5)
         return result
 
-    def wait_panel(self, feature, box=None, threshold=0.8, time_out=4.5):
+    def wait_panel(self, feature, box=None, threshold=0.7, time_out=5):
         result = self.wait_until(
             lambda: self.find_one(feature, box=box, threshold=threshold),
             time_out=time_out,
