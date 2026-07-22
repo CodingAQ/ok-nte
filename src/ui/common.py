@@ -10,7 +10,7 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import QIcon, QImage, QPixmap
+from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QCompleter,
     QHBoxLayout,
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from qfluentwidgets import (
+    CardWidget,
     EditableComboBox,
     FluentIcon,
     FluentIconBase,
@@ -26,6 +27,7 @@ from qfluentwidgets import (
     SearchLineEdit,
     Theme,
     getIconColor,
+    isDarkTheme,
 )
 
 
@@ -67,6 +69,81 @@ class CharManagerSignals(QObject):
 
 
 char_manager_signals = CharManagerSignals()
+
+
+class BorderCardWidget(CardWidget):
+    """A Fluent card widget with an adjustable painted border width."""
+
+    def __init__(self, parent=None, border_width: float = 1.0):
+        super().__init__(parent)
+        self._border_width = max(0.0, border_width)
+
+    def borderWidth(self) -> float:
+        return self._border_width
+
+    def setBorderWidth(self, width: float):
+        """Set the border width in device-independent pixels."""
+        width = max(0.0, width)
+        if self._border_width != width:
+            self._border_width = width
+            self.update()
+
+    def paintEvent(self, e):
+        painter = QPainter(self)
+        painter.setRenderHints(QPainter.RenderHint.Antialiasing)
+
+        width, height = self.width(), self.height()
+        is_dark = isDarkTheme()
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(self.backgroundColor)
+        painter.drawRoundedRect(
+            self.rect().adjusted(1, 1, -1, -1), self.borderRadius, self.borderRadius
+        )
+
+        if self._border_width <= 0 or width <= 0 or height <= 0:
+            return
+
+        inset = min(self._border_width / 2, width / 2, height / 2)
+        radius = min(self.borderRadius, (width - 2 * inset) / 2, (height - 2 * inset) / 2)
+        diameter = 2 * max(0, radius)
+        right = width - inset
+        bottom = height - inset
+
+        top_border_color = QColor(0, 0, 0, 20)
+        if is_dark:
+            if self.isPressed:
+                top_border_color = QColor(255, 255, 255, 18)
+            elif self.isHover:
+                top_border_color = QColor(255, 255, 255, 13)
+        else:
+            top_border_color = QColor(0, 0, 0, 15)
+
+        top_border = QPainterPath()
+        top_border.arcMoveTo(inset, bottom - diameter, diameter, diameter, 225)
+        top_border.arcTo(inset, bottom - diameter, diameter, diameter, 225, -60)
+        top_border.lineTo(inset, inset + radius)
+        top_border.arcTo(inset, inset, diameter, diameter, -180, -90)
+        top_border.lineTo(right - radius, inset)
+        top_border.arcTo(right - diameter, inset, diameter, diameter, 90, -90)
+        top_border.lineTo(right, bottom - radius)
+        top_border.arcTo(right - diameter, bottom - diameter, diameter, diameter, 0, -45)
+        top_pen = QPen(top_border_color, self._border_width)
+        top_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+        painter.strokePath(top_border, top_pen)
+
+        bottom_border = QPainterPath()
+        bottom_border.arcMoveTo(inset, bottom - diameter, diameter, diameter, 225)
+        bottom_border.arcTo(inset, bottom - diameter, diameter, diameter, 225, 45)
+        bottom_border.lineTo(right - radius, bottom)
+        bottom_border.arcTo(right - diameter, bottom - diameter, diameter, diameter, 270, 45)
+
+        bottom_border_color = top_border_color
+        if not is_dark and self.isHover and not self.isPressed:
+            bottom_border_color = QColor(0, 0, 0, 27)
+        bottom_pen = QPen(bottom_border_color, self._border_width)
+        bottom_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+        painter.strokePath(bottom_border, bottom_pen)
 
 
 class SearchableComboBox(EditableComboBox):

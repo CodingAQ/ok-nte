@@ -66,7 +66,7 @@ class GiftPriorityCard(SimpleCardWidget):
         if self.blocked:
             self.caption.setText(og.app.tr("不可赠送"))
             self.setStyleSheet(
-                "GiftPriorityCard { border: 2px solid #d13438; border-radius: 8px; }"
+                "GiftPriorityCard { border: 2px solid #d13438; border-radius: 5px; }"
             )
             self._position_content()
             return
@@ -76,7 +76,7 @@ class GiftPriorityCard(SimpleCardWidget):
         else:
             self.caption.setText(og.app.tr("优先级 {}").format(priority))
             self.setStyleSheet(
-                "GiftPriorityCard { border: 2px solid #00b7c3; border-radius: 8px; }"
+                "GiftPriorityCard { border: 2px solid #00b7c3; border-radius: 5px; }"
             )
         self._position_content()
 
