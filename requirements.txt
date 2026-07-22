@@ -76,7 +76,7 @@ packaging==26.0
     #   mido
     #   pooch
     #   scikit-image
-pillow==12.2.0
+pillow==12.3.0
     # via
     #   imageio
     #   onnxocr-ppocrv5
