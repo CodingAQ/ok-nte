@@ -127,11 +127,6 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
                 self.claim_mail,
             ),
             (
-                self.CONF_COFFEE_TASK,
-                self.config.get(self.CONF_COFFEE_TASK) in coffee_mode,
-                self.run_coffee_task,
-            ),
-            (
                 self.CONF_COMPLETE_DAILY,
                 self._task_enabled(self.CONF_COMPLETE_DAILY, True),
                 self.complete_daily_activities,
@@ -140,6 +135,11 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
                 self.CONF_CLAIM_ACTIVITY,
                 self._task_enabled(self.CONF_CLAIM_ACTIVITY, True),
                 self.claim_activity_rewards,
+            ),
+            (
+                self.CONF_COFFEE_TASK,
+                self.config.get(self.CONF_COFFEE_TASK) in coffee_mode,
+                self.run_coffee_task,
             ),
             (
                 self.CONF_CLAIM_BP,
