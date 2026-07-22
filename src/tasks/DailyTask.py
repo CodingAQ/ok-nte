@@ -536,6 +536,7 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
 
             # 寻找目标家具
             while scroll or i < shown:
+                self.next_frame()
                 if scroll:
                     target_y = ratio_y
                 else:
@@ -549,7 +550,7 @@ class DailyTask(NTEOneTimeTask, CinemaDateMixin, BaseNTETask):
                     if not is_initial:
                         box = self.get_box_by_name(Labels.box_house_preview_snapshot)
                         snapshot = box.crop_frame(self.frame)
-                        while scroll_times > 0:
+                        for _ in range(10):
                             self.operate_click(ratio_x, target_y)
                             self.sleep(0.25)
                             if not self.find_one(template=snapshot, box=box):
