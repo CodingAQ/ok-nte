@@ -70,6 +70,7 @@ class Labels(str, Enum):
     message_dialog = 'message_dialog'
     mini_map_arrow = 'mini_map_arrow'
     monthly_card = 'monthly_card'
+    reward_popup = 'reward_popup'
     skip_dialog = 'skip_dialog'
     stamina_icon = 'stamina_icon'
     target = 'target'
