@@ -36,3 +36,8 @@ quote-style = "double"
 
 [tool.ruff.lint.isort]
 known-third-party = ["ok"]
+
+[tool.uv]
+environments = [
+    "sys_platform == 'win32'"
+]
