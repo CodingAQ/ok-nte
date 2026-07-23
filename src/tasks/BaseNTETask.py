@@ -643,26 +643,26 @@ class BaseNTETask(CharUIMixin, MovementMixin, VisionMixin, OgMixin, LogGateMixin
         if self.is_in_team():
             return False
         monthly_card = self.find_monthly_card()
-        # self.screenshot('monthly_card1')
         if monthly_card is not None:
-            # self.screenshot('monthly_card1')
             self.log_info("monthly_card found click")
             deadline = time.time() + 20
             settle = -1
             while time.time() < deadline:
-                if self.is_in_team():
-                    if settle < 0:
-                        settle = time.time()
-                    elif time.time() - settle > 2:
-                        break
-                else:
+                if self.find_monthly_card():
                     self.operate_click(0.50, 0.89, after_sleep=2)
                     settle = -1
+                    continue
+                if self.find_one(Labels.reward_popup):
+                    self.send_key("esc", after_sleep=2)
+                    settle = -1
+                    continue
+                if settle < 0:
+                    settle = time.time()
+                elif time.time() - settle > 2:
+                    break
             else:
                 raise WaitFailedException()
-            # self.screenshot('monthly_card3')
             self.set_check_monthly_card(next_day=True)
-        # logger.debug(f'check_monthly_card {monthly_card}')
         return monthly_card is not None
 
     def set_check_monthly_card(self, next_day=False):
